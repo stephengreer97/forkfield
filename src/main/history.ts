@@ -74,10 +74,14 @@ export function loadSessionHistory(sessionId: string): Turn[] | null {
 
     if (type === 'assistant') {
       const blocks = textOf(message.content)
-      if (blocks.length) {
-        const turn: Turn = { id: randomUUID(), role: 'assistant', blocks, createdAt: Date.now() }
-        turns.push(turn)
-        lastAssistant = turn
+      if (!blocks.length) continue
+      // Claude Code writes one content block per line; merge consecutive
+      // assistant lines into a single turn until the next user prompt.
+      if (lastAssistant) {
+        lastAssistant.blocks.push(...blocks)
+      } else {
+        lastAssistant = { id: randomUUID(), role: 'assistant', blocks, createdAt: Date.now() }
+        turns.push(lastAssistant)
       }
     } else if (type === 'user') {
       const blocks = textOf(message.content)
@@ -89,6 +93,7 @@ export function loadSessionHistory(sessionId: string): Turn[] | null {
         lastAssistant.blocks.push(...blocks)
       } else {
         turns.push({ id: randomUUID(), role: 'user', blocks, createdAt: Date.now() })
+        lastAssistant = null
       }
     }
   }
