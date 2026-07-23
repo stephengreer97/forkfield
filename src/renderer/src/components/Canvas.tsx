@@ -17,7 +17,7 @@ const nodeTypes = { branch: NodeCard }
 
 export default function Canvas(props: {
   onOpen: (id: string) => void
-  onDelete: (id: string) => void
+  onMenu: (id: string, x: number, y: number) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
 }): JSX.Element | null {
   const canvas = useStore((s) => s.canvas)
@@ -45,7 +45,7 @@ export default function Canvas(props: {
       node: n,
       permission: permissions[n.id],
       onOpen: props.onOpen,
-      onDelete: props.onDelete,
+      onMenu: props.onMenu,
       onRespondPermission: props.onRespondPermission
     } satisfies BranchNodeData as unknown as Record<string, unknown>
   }))
@@ -66,7 +66,7 @@ export default function Canvas(props: {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
-        fitView
+        defaultViewport={{ x: 60, y: 90, zoom: 0.8 }}
         minZoom={0.2}
         maxZoom={1.6}
         proOptions={{ hideAttribution: true }}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { useStore } from './store'
 import Canvas from './components/Canvas'
@@ -14,6 +14,10 @@ export default function App(): JSX.Element {
   const canvas = useStore((s) => s.canvas)
   const openNodeId = useStore((s) => s.openNodeId)
   const permissions = useStore((s) => s.permissions)
+  const [menu, setMenu] = useState<{ nodeId: string; x: number; y: number } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ nodeId: string; count: number } | null>(
+    null
+  )
 
   useEffect(() => {
     let mounted = true
@@ -72,19 +76,21 @@ export default function App(): JSX.Element {
     []
   )
 
-  const doDelete = useCallback((nodeId: string) => {
-    const state = useStore.getState()
-    const c = state.canvas
+  const onMenu = useCallback((nodeId: string, x: number, y: number) => {
+    setMenu({ nodeId, x, y })
+  }, [])
+
+  const requestDelete = useCallback((nodeId: string) => {
+    const c = useStore.getState().canvas
     if (!c) return
-    const kids = descendantIds(c.nodes, nodeId)
-    const msg = kids.length
-      ? `Delete this node and its ${kids.length} descendant branch${
-          kids.length === 1 ? '' : 'es'
-        }? This cannot be undone.`
-      : 'Delete this node? This cannot be undone.'
-    if (!window.confirm(msg)) return
-    const removed = state.deleteNode(nodeId)
+    const count = descendantIds(c.nodes, nodeId).length
+    setConfirmDelete({ nodeId, count })
+  }, [])
+
+  const performDelete = useCallback((nodeId: string) => {
+    const removed = useStore.getState().deleteNode(nodeId)
     for (const id of removed) window.branchpad.interrupt(id)
+    setConfirmDelete(null)
   }, [])
 
   const respondPermission = useCallback((nodeId: string, requestId: string, allow: boolean) => {
@@ -130,7 +136,11 @@ export default function App(): JSX.Element {
         onToggleBypass={toggleBypass}
         onOpenFolder={openFolder}
       />
-      <Canvas onOpen={(id) => useStore.getState().openNode(id)} onDelete={doDelete} onRespondPermission={respondPermission} />
+      <Canvas
+        onOpen={(id) => useStore.getState().openNode(id)}
+        onMenu={onMenu}
+        onRespondPermission={respondPermission}
+      />
       {openNode && (
         <CliView
           node={openNode}
@@ -142,6 +152,120 @@ export default function App(): JSX.Element {
           onRespondPermission={respondPermission}
         />
       )}
+      {menu && (
+        <NodeMenu
+          x={menu.x}
+          y={menu.y}
+          isRoot={!canvas.nodes.find((n) => n.id === menu.nodeId)?.parentId}
+          onOpen={() => {
+            useStore.getState().openNode(menu.nodeId)
+            setMenu(null)
+          }}
+          onMarkUnread={() => {
+            useStore.getState().markUnread(menu.nodeId)
+            setMenu(null)
+          }}
+          onMakeRoot={() => {
+            useStore.getState().makeRoot(menu.nodeId)
+            setMenu(null)
+          }}
+          onDelete={() => {
+            const id = menu.nodeId
+            setMenu(null)
+            requestDelete(id)
+          }}
+          onClose={() => setMenu(null)}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete node"
+          message={
+            confirmDelete.count > 0
+              ? `This deletes the node and its ${confirmDelete.count} descendant branch${
+                  confirmDelete.count === 1 ? '' : 'es'
+                }. This cannot be undone.`
+              : 'This deletes the node. This cannot be undone.'
+          }
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => performDelete(confirmDelete.nodeId)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function NodeMenu(props: {
+  x: number
+  y: number
+  isRoot: boolean
+  onOpen: () => void
+  onMarkUnread: () => void
+  onMakeRoot: () => void
+  onDelete: () => void
+  onClose: () => void
+}): JSX.Element {
+  return (
+    <>
+      <div
+        className="menu-backdrop"
+        onMouseDown={props.onClose}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          props.onClose()
+        }}
+      />
+      <div className="context-menu" style={{ left: props.x, top: props.y }}>
+        <button className="menu-item" onClick={props.onOpen}>
+          Open
+        </button>
+        <button className="menu-item" onClick={props.onMarkUnread}>
+          Mark Unread
+        </button>
+        <button className="menu-item" onClick={props.onMakeRoot} disabled={props.isRoot}>
+          Make Root
+        </button>
+        <div className="menu-sep" />
+        <button className="menu-item danger" onClick={props.onDelete}>
+          Delete…
+        </button>
+      </div>
+    </>
+  )
+}
+
+function ConfirmDialog(props: {
+  title: string
+  message: string
+  confirmLabel: string
+  danger?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}): JSX.Element {
+  return (
+    <div
+      className="confirm-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) props.onCancel()
+      }}
+    >
+      <div className="confirm-dialog">
+        <h3>{props.title}</h3>
+        <p>{props.message}</p>
+        <div className="confirm-actions">
+          <button className="btn" onClick={props.onCancel}>
+            Cancel
+          </button>
+          <button
+            className={`btn ${props.danger ? 'stop' : 'primary'}`}
+            onClick={props.onConfirm}
+          >
+            {props.confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

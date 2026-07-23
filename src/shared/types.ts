@@ -47,6 +47,7 @@ export interface CanvasNode {
   turns: Turn[]
   usage: Usage
   title: string
+  unread: boolean
 }
 
 export interface CanvasSettings {

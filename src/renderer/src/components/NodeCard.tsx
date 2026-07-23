@@ -8,7 +8,7 @@ export interface BranchNodeData {
   node: CanvasNode
   permission?: PendingPermission
   onOpen: (id: string) => void
-  onDelete: (id: string) => void
+  onMenu: (id: string, x: number, y: number) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
 }
 
@@ -31,12 +31,15 @@ export default function NodeCard({ data }: NodeProps): JSX.Element {
       onClick={() => d.onOpen(n.id)}
       onContextMenu={(e) => {
         e.preventDefault()
-        d.onDelete(n.id)
+        d.onMenu(n.id, e.clientX, e.clientY)
       }}
     >
       <Handle type="target" position={Position.Left} />
       <div className="node-head">
-        <span className="node-title">{n.title}</span>
+        <span className="node-title">
+          {n.unread && <span className="unread-dot" title="Unread" />}
+          {n.title}
+        </span>
         <span className={`node-status status-${n.status}`}>{STATUS_LABEL[n.status]}</span>
       </div>
       <div className="node-preview">

@@ -34,6 +34,8 @@ interface Store {
   moveNode(nodeId: string, x: number, y: number): void
   deleteNode(nodeId: string): string[]
   clearPermission(nodeId: string): void
+  markUnread(nodeId: string): void
+  makeRoot(nodeId: string): void
 
   applyEvent(e: SessionEvent): void
 }
@@ -92,7 +94,8 @@ export const useStore = create<Store>((set, get) => ({
       status: 'idle',
       turns: [],
       usage: emptyUsage(),
-      title: 'Root'
+      title: 'Root',
+      unread: false
     }
     const canvas: CanvasState = {
       id: uuid(),
@@ -105,7 +108,18 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   openNode(id) {
-    set({ openNodeId: id })
+    set((s) => {
+      if (id && s.canvas) {
+        return {
+          openNodeId: id,
+          canvas: replaceNode(s.canvas, id, (n) => {
+            n.unread = false
+            return n
+          })
+        }
+      }
+      return { openNodeId: id }
+    })
   },
 
   setBypass(on) {
@@ -137,7 +151,8 @@ export const useStore = create<Store>((set, get) => ({
       status: 'idle',
       turns: [],
       usage: emptyUsage(),
-      title: 'Branch'
+      title: 'Branch',
+      unread: false
     }
     set({ canvas: { ...canvas, nodes: [...canvas.nodes, node] } })
     return node
@@ -191,6 +206,36 @@ export const useStore = create<Store>((set, get) => ({
       delete permissions[nodeId]
       return { permissions }
     })
+  },
+
+  markUnread(nodeId) {
+    set((s) =>
+      s.canvas
+        ? {
+            canvas: replaceNode(s.canvas, nodeId, (n) => {
+              n.unread = true
+              return n
+            })
+          }
+        : s
+    )
+  },
+
+  makeRoot(nodeId) {
+    set((s) =>
+      s.canvas
+        ? {
+            canvas: replaceNode(s.canvas, nodeId, (n) => {
+              n.parentId = null
+              n.branchPoint = null
+              n.seedSelection = null
+              n.position = { x: 80, y: n.position.y }
+              n.title = 'Root'
+              return n
+            })
+          }
+        : s
+    )
   },
 
   applyEvent(e) {
@@ -259,6 +304,7 @@ export const useStore = create<Store>((set, get) => ({
             canvas: replaceNode(canvas, e.nodeId, (n) => {
               n.usage = addUsage(n.usage, e.usage)
               if (e.sessionId) n.sessionId = e.sessionId
+              if (e.nodeId !== s.openNodeId) n.unread = true
               const turn = n.turns.find((t) => t.id === e.turnId)
               if (turn) turn.usage = e.usage
               return n

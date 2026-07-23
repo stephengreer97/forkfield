@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import type { CanvasNode, ContentBlock, Turn } from '../../../shared/types'
 import type { PendingPermission } from '../store'
 import { formatCost, formatTokens } from '../util'
+import { Markdown } from './Markdown'
 
 interface BranchPopover {
   text: string
@@ -26,6 +27,7 @@ export default function CliView(props: {
   const [question, setQuestion] = useState('')
   const transcriptRef = useRef<HTMLDivElement | null>(null)
   const questionRef = useRef<HTMLInputElement | null>(null)
+  const popoverRef = useRef<HTMLDivElement | null>(null)
   const thinking = node.status === 'thinking' || node.status === 'awaiting_permission'
 
   // Auto scroll to bottom as the transcript grows.
@@ -49,6 +51,21 @@ export default function CliView(props: {
 
   useEffect(() => {
     if (popover) questionRef.current?.focus()
+  }, [popover])
+
+  // Click away from the branch popover to dismiss it.
+  useEffect(() => {
+    if (!popover) return
+    const onDown = (e: MouseEvent): void => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setPopover(null)
+      }
+    }
+    const id = window.setTimeout(() => document.addEventListener('mousedown', onDown), 0)
+    return () => {
+      window.clearTimeout(id)
+      document.removeEventListener('mousedown', onDown)
+    }
   }, [popover])
 
   function handleMouseUp(): void {
@@ -181,6 +198,7 @@ export default function CliView(props: {
 
       {popover && (
         <div
+          ref={popoverRef}
           className="branch-popover"
           style={{ left: popover.x, top: popover.y }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -215,17 +233,21 @@ function TurnView(props: { turn: Turn; index: number }): JSX.Element {
       <div className="turn-role">{turn.role === 'user' ? 'you' : 'claude'}</div>
       <div className="turn-body">
         {turn.blocks.map((b, i) => (
-          <BlockView key={i} block={b} />
+          <BlockView key={i} block={b} markdown={turn.role === 'assistant'} />
         ))}
       </div>
     </div>
   )
 }
 
-function BlockView(props: { block: ContentBlock }): JSX.Element {
+function BlockView(props: { block: ContentBlock; markdown: boolean }): JSX.Element {
   const b = props.block
   if (b.kind === 'text') {
-    return <div className="block-text">{b.text}</div>
+    return props.markdown ? (
+      <Markdown text={b.text ?? ''} />
+    ) : (
+      <div className="block-text">{b.text}</div>
+    )
   }
   if (b.kind === 'tool_use') {
     return (
