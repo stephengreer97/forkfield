@@ -153,6 +153,9 @@ export default function CliView(props: {
             <span className="cli-cwd">{node.workingDirectory}</span>
           </div>
           <div className="cli-header-right">
+            <span className="usage-pill" title="Model for this node (change with /model)">
+              {node.model ?? 'default'}
+            </span>
             <span className="usage-pill">
               {formatTokens(tokens)} tok · {formatCost(node.usage.costUsd)}
             </span>

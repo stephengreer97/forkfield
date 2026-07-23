@@ -10,6 +10,13 @@ function getNode(id: string): CanvasNode | undefined {
   return useStore.getState().canvas?.nodes.find((n) => n.id === id)
 }
 
+const MODEL_OPTIONS: { label: string; value: string | null; desc: string }[] = [
+  { label: 'Default', value: null, desc: 'Use the default model' },
+  { label: 'Opus', value: 'opus', desc: 'Most capable' },
+  { label: 'Sonnet', value: 'sonnet', desc: 'Balanced speed and quality' },
+  { label: 'Haiku', value: 'haiku', desc: 'Fastest and cheapest' }
+]
+
 export default function App(): JSX.Element {
   const canvas = useStore((s) => s.canvas)
   const openNodeId = useStore((s) => s.openNodeId)
@@ -20,6 +27,7 @@ export default function App(): JSX.Element {
   )
   const [newRootChoice, setNewRootChoice] = useState(false)
   const [resumePrompt, setResumePrompt] = useState(false)
+  const [modelPicker, setModelPicker] = useState<{ nodeId: string } | null>(null)
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(() =>
     localStorage.getItem('forkfield:file')
   )
@@ -57,13 +65,23 @@ export default function App(): JSX.Element {
   const sendMessage = useCallback((nodeId: string, text: string) => {
     const node = getNode(nodeId)
     if (!node) return
+    // /model is not an interactive SDK command; handle it in Forkfield instead.
+    const mm = text.trim().match(/^\/model(?:\s+(.+))?$/i)
+    if (mm) {
+      useStore.getState().appendUserTurn(nodeId, text)
+      const arg = mm[1]?.trim()
+      if (arg) useStore.getState().setNodeModel(nodeId, arg)
+      else setModelPicker({ nodeId })
+      return
+    }
     useStore.getState().appendUserTurn(nodeId, text)
     void window.forkfield.startTurn({
       nodeId,
       prompt: text,
       cwd: node.workingDirectory,
       resumeSessionId: node.sessionId,
-      fork: false
+      fork: false,
+      model: node.model ?? undefined
     })
   }, [])
 
@@ -73,6 +91,7 @@ export default function App(): JSX.Element {
       if (!parent) return
       const node = useStore.getState().addBranch(parentId, turnIndex, selection)
       if (!node) return
+      if (parent.model) useStore.getState().setNodeModel(node.id, parent.model)
       const prompt = buildBranchPrompt(selection, question)
       useStore.getState().appendUserTurn(node.id, prompt)
       void window.forkfield.startTurn({
@@ -80,7 +99,8 @@ export default function App(): JSX.Element {
         prompt,
         cwd: parent.workingDirectory,
         resumeSessionId: parent.sessionId,
-        fork: true
+        fork: true,
+        model: parent.model ?? undefined
       })
     },
     []
@@ -295,6 +315,20 @@ export default function App(): JSX.Element {
             setResumePrompt(false)
             void addNewSession(id.trim())
           }}
+        />
+      )}
+      {modelPicker && (
+        <ChoiceDialog
+          title="Choose model for this node"
+          onCancel={() => setModelPicker(null)}
+          options={MODEL_OPTIONS.map((m) => ({
+            label: m.label,
+            desc: m.desc,
+            onClick: () => {
+              useStore.getState().setNodeModel(modelPicker.nodeId, m.value)
+              setModelPicker(null)
+            }
+          }))}
         />
       )}
     </div>

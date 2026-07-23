@@ -68,14 +68,15 @@ export class SessionManager {
     const rt = this.runtime(params.nodeId, params.cwd)
     if (rt.busy) return
     const resume = params.resumeSessionId ?? rt.sessionId ?? undefined
-    await this.run(rt, params.prompt, resume, params.fork)
+    await this.run(rt, params.prompt, resume, params.fork, params.model)
   }
 
   private async run(
     rt: NodeRuntime,
     prompt: string,
     resume: string | undefined,
-    fork: boolean
+    fork: boolean,
+    model: string | undefined
   ): Promise<void> {
     rt.busy = true
     const abort = new AbortController()
@@ -94,6 +95,7 @@ export class SessionManager {
       }
       if (resume) options.resume = resume
       if (fork) options.forkSession = true
+      if (model) options.model = model
       if (!this.bypass) {
         options.canUseTool = (toolName: string, input: unknown) =>
           this.askPermission(rt, toolName, input)

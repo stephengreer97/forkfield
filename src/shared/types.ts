@@ -48,6 +48,7 @@ export interface CanvasNode {
   usage: Usage
   title: string
   unread: boolean
+  model?: string | null
 }
 
 export interface CanvasSettings {
@@ -67,6 +68,7 @@ export interface StartTurnParams {
   cwd: string
   resumeSessionId: string | null
   fork: boolean
+  model?: string
 }
 
 export type SessionEvent =
