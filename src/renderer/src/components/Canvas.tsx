@@ -71,8 +71,8 @@ export default function Canvas(props: {
         maxZoom={1.6}
         proOptions={{ hideAttribution: true }}
       >
-        <Background color="#1b2130" gap={24} />
-        <MiniMap pannable zoomable maskColor="rgba(6,8,12,0.7)" />
+        <Background color="#c4cdda" gap={24} />
+        <MiniMap pannable zoomable nodeColor="#c2ccd8" maskColor="rgba(233,237,243,0.6)" />
         <Controls />
       </ReactFlow>
     </div>

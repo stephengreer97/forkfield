@@ -183,9 +183,14 @@ function EmptyState(props: { onOpen: () => void }): JSX.Element {
     <div className="empty">
       <div className="empty-card">
         <h1>Branchpad</h1>
-        <p>A branching canvas for Claude Code. Choose a folder to open your first session in.</p>
-        <button className="btn primary" onClick={props.onOpen}>
-          Open a folder
+        <p className="empty-lead">Choose a folder to start a Claude Code session in.</p>
+        <p className="empty-sub">
+          Branchpad opens a Claude Code session in the folder you pick, the same as running{' '}
+          <code>claude</code> in that directory. That session becomes your root node on the canvas.
+          From any response you can highlight text and branch off into new sessions.
+        </p>
+        <button className="btn primary lg" onClick={props.onOpen}>
+          Choose folder and start session
         </button>
       </div>
     </div>

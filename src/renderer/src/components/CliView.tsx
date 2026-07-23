@@ -119,7 +119,10 @@ export default function CliView(props: {
         <div className="cli-transcript" ref={transcriptRef} onMouseUp={handleMouseUp}>
           {node.turns.length === 0 && (
             <div className="cli-hint">
-              Type a message below to start. Highlight any assistant text to branch off it.
+              This node is a Claude Code session running in <b>{node.workingDirectory}</b>.
+              <br />
+              <br />
+              Type a message below to start. Highlight any assistant text later to branch off it.
             </div>
           )}
           {node.turns.map((turn, idx) => (
