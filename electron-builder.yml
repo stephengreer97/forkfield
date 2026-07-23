@@ -6,6 +6,8 @@ files:
   - out/**/*
   - package.json
   - node_modules/**/*
+asarUnpack:
+  - '**/@anthropic-ai/claude-agent-sdk-*/**'
 win:
   target:
     - nsis

@@ -62,19 +62,19 @@ A `.forkfield` file is the whole canvas as JSON: node ids, parent connections, p
 
 ## Package for Windows
 
-Two options.
+Important: the Agent SDK ships the Claude Code CLI as a per-platform native binary (an optional dependency, e.g. `@anthropic-ai/claude-agent-sdk-win32-x64` which contains `claude.exe`). A build only installs the binary for the machine it runs on, so cross-building a Windows package from WSL needs the Windows binary added explicitly. `electron-builder.yml` unpacks these binaries from the asar archive so Windows can execute them.
 
-- **Portable zip (builds from WSL, no extra tools):**
+- **Build on Windows (recommended, clean):** from Windows PowerShell in the repo, run `npm install` then `npm run pack:win`. npm fetches the win32 binary automatically. Produces `dist/Forkfield-<version>-x64.zip` and `dist/win-unpacked/Forkfield.exe`.
+
+- **Cross-build from WSL:** add the Windows binary first, then package:
   ```
+  npm install @anthropic-ai/claude-agent-sdk-win32-x64 --no-save --force
   npm run pack:win
   ```
-  Produces `dist/Forkfield-<version>-x64.zip` and `dist/win-unpacked/Forkfield.exe`. Copy the zip to Windows, unzip anywhere, and run `Forkfield.exe`. No install needed. The Agent SDK is pure JavaScript with no native binaries, so a WSL-built package runs on Windows.
 
-- **Installer (.exe, NSIS):**
-  ```
-  npm run dist:win
-  ```
-  This produces a proper installer under `dist/`. Building the NSIS installer on WSL/Linux needs Wine; the reliable path is to run this command from **Windows PowerShell** in the repo (run `npm install` there once first), where no Wine is required.
+Copy the zip to Windows, unzip anywhere, and run `Forkfield.exe`. No install needed.
+
+- **Installer (.exe, NSIS):** `npm run dist:win`. Building the NSIS installer on WSL/Linux needs Wine; the reliable path is Windows PowerShell.
 
 The app has no custom icon yet, so it uses the default Electron icon. That is a later polish step.
 
