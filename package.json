@@ -5,6 +5,7 @@
   "author": "",
   "main": "./out/main/index.js",
   "scripts": {
+    "start": "bash scripts/launch.sh",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",

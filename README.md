@@ -27,27 +27,22 @@ See [SPEC.md](./SPEC.md) for the full technical design.
 
 ## Run it (WSL2 on Windows 11)
 
-1. Install dependencies:
-   ```
-   npm install
-   ```
-   On WSL the first install is slow because it pulls the Electron binary and a large dependency tree. Let it finish; do not run two installs at once.
-
-2. Start the app:
-   ```
-   npm run dev
-   ```
-   The window opens on your Windows desktop via WSLg.
-
-If the Electron binary was skipped during install (you will see an error about a missing Electron executable on `npm run dev`), fetch it once with:
+One command, from anywhere:
 ```
-node node_modules/electron/install.js
+branchpad
+```
+That builds the app and opens it on your Windows desktop through WSLg. A `branchpad` launcher is installed in `~/bin`. If `~/bin` is not on your PATH, run the script directly:
+```
+~/branchpad/scripts/launch.sh
+```
+or, from inside the repo:
+```
+npm start
 ```
 
-If your shell blocks executing `node_modules/.bin` scripts, run commands through node or npx instead, for example:
-```
-npx electron-vite dev
-```
+The first run installs dependencies and fetches the Electron binary, so it takes a few minutes. After that it starts in a few seconds. The launcher handles the install, the binary fetch, and the build for you, and it passes `--no-sandbox`, which WSL needs.
+
+For live development with hot reload, use `npm run dev` instead.
 
 ### Auth
 
