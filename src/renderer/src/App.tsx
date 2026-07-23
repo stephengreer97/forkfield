@@ -18,6 +18,8 @@ export default function App(): JSX.Element {
   const [confirmDelete, setConfirmDelete] = useState<{ nodeId: string; count: number } | null>(
     null
   )
+  const [newRootChoice, setNewRootChoice] = useState(false)
+  const [resumePrompt, setResumePrompt] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -107,13 +109,21 @@ export default function App(): JSX.Element {
     window.branchpad.setBypass(on)
   }, [])
 
-  const openFolder = useCallback(async () => {
+  // First session on an empty canvas: creates the canvas and its root.
+  const startFirstSession = useCallback(async () => {
     const dir = await window.branchpad.chooseDirectory()
     if (dir) useStore.getState().initCanvas(dir)
   }, [])
 
+  // Adds an independent root to the existing canvas. Optionally resumes a
+  // Claude session by id. Both paths prompt for the folder.
+  const addNewSession = useCallback(async (resumeSessionId?: string) => {
+    const dir = await window.branchpad.chooseDirectory()
+    if (dir) useStore.getState().addRoot(dir, resumeSessionId ?? null)
+  }, [])
+
   if (!canvas) {
-    return <EmptyState onOpen={openFolder} />
+    return <EmptyState onOpen={startFirstSession} />
   }
 
   const total = canvas.nodes.reduce(
@@ -134,7 +144,7 @@ export default function App(): JSX.Element {
         totalCost={total.cost}
         bypass={canvas.settings.bypassPermissions}
         onToggleBypass={toggleBypass}
-        onOpenFolder={openFolder}
+        onNewRoot={() => setNewRootChoice(true)}
       />
       <Canvas
         onOpen={(id) => useStore.getState().openNode(id)}
@@ -193,6 +203,118 @@ export default function App(): JSX.Element {
           onCancel={() => setConfirmDelete(null)}
         />
       )}
+      {newRootChoice && (
+        <ChoiceDialog
+          title="New root session"
+          onCancel={() => setNewRootChoice(false)}
+          options={[
+            {
+              label: 'Start a new session',
+              desc: 'Pick a folder and begin a fresh Claude Code session.',
+              onClick: () => {
+                setNewRootChoice(false)
+                void addNewSession()
+              }
+            },
+            {
+              label: 'Resume a session',
+              desc: 'Enter an existing Claude session id, then pick its folder.',
+              onClick: () => {
+                setNewRootChoice(false)
+                setResumePrompt(true)
+              }
+            }
+          ]}
+        />
+      )}
+      {resumePrompt && (
+        <PromptDialog
+          title="Resume a session"
+          label="Claude session id"
+          placeholder="paste the session id"
+          confirmLabel="Choose folder…"
+          onCancel={() => setResumePrompt(false)}
+          onSubmit={(id) => {
+            setResumePrompt(false)
+            void addNewSession(id.trim())
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ChoiceDialog(props: {
+  title: string
+  options: { label: string; desc: string; onClick: () => void }[]
+  onCancel: () => void
+}): JSX.Element {
+  return (
+    <div
+      className="confirm-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) props.onCancel()
+      }}
+    >
+      <div className="confirm-dialog">
+        <h3>{props.title}</h3>
+        <div className="choice-list">
+          {props.options.map((o, i) => (
+            <button key={i} className="choice-item" onClick={o.onClick}>
+              <span className="choice-label">{o.label}</span>
+              <span className="choice-desc">{o.desc}</span>
+            </button>
+          ))}
+        </div>
+        <div className="confirm-actions">
+          <button className="btn" onClick={props.onCancel}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PromptDialog(props: {
+  title: string
+  label: string
+  placeholder?: string
+  confirmLabel: string
+  onSubmit: (value: string) => void
+  onCancel: () => void
+}): JSX.Element {
+  const [value, setValue] = useState('')
+  return (
+    <div
+      className="confirm-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) props.onCancel()
+      }}
+    >
+      <div className="confirm-dialog">
+        <h3>{props.title}</h3>
+        <label className="prompt-label">{props.label}</label>
+        <input
+          autoFocus
+          className="prompt-input"
+          placeholder={props.placeholder}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && value.trim()) props.onSubmit(value)
+            if (e.key === 'Escape') props.onCancel()
+          }}
+        />
+        <div className="confirm-actions">
+          <button className="btn" onClick={props.onCancel}>
+            Cancel
+          </button>
+          <button className="btn primary" disabled={!value.trim()} onClick={() => props.onSubmit(value)}>
+            {props.confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -275,7 +397,7 @@ function TopBar(props: {
   totalCost: number
   bypass: boolean
   onToggleBypass: (on: boolean) => void
-  onOpenFolder: () => void
+  onNewRoot: () => void
 }): JSX.Element {
   return (
     <div className="topbar">
@@ -294,7 +416,7 @@ function TopBar(props: {
           />
           <span>skip permissions</span>
         </label>
-        <button className="btn" onClick={props.onOpenFolder}>
+        <button className="btn" onClick={props.onNewRoot}>
           New root
         </button>
       </div>

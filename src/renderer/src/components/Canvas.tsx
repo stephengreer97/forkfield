@@ -7,7 +7,8 @@ import {
   MiniMap,
   type Node,
   type Edge,
-  type NodeChange
+  type NodeChange,
+  type ReactFlowInstance
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useStore } from '../store'
@@ -34,6 +35,20 @@ export default function Canvas(props: {
     },
     [moveNode]
   )
+
+  // Place the primary root on the left, vertically centered in the viewport.
+  const onInit = useCallback((instance: ReactFlowInstance) => {
+    const c = useStore.getState().canvas
+    if (!c) return
+    const root = c.nodes.find((n) => !n.parentId) ?? c.nodes[0]
+    if (!root) return
+    const zoom = 0.85
+    const container = document.querySelector('.canvas') as HTMLElement | null
+    const h = container?.clientHeight ?? window.innerHeight
+    const x = 80 - root.position.x * zoom
+    const y = h / 2 - root.position.y * zoom - 70
+    instance.setViewport({ x, y, zoom })
+  }, [])
 
   if (!canvas) return null
 
@@ -66,7 +81,7 @@ export default function Canvas(props: {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
-        defaultViewport={{ x: 60, y: 90, zoom: 0.8 }}
+        onInit={onInit}
         minZoom={0.2}
         maxZoom={1.6}
         proOptions={{ hideAttribution: true }}

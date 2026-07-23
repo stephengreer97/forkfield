@@ -22,6 +22,7 @@ interface Store {
 
   setCanvas(c: CanvasState | null): void
   initCanvas(dir: string): string
+  addRoot(dir: string, resumeSessionId?: string | null): CanvasNode | null
   openNode(id: string | null): void
   setBypass(on: boolean): void
 
@@ -105,6 +106,28 @@ export const useStore = create<Store>((set, get) => ({
     }
     set({ canvas, openNodeId: rootId })
     return rootId
+  },
+
+  addRoot(dir, resumeSessionId = null) {
+    const { canvas } = get()
+    if (!canvas) return null
+    const maxY = canvas.nodes.reduce((m, n) => Math.max(m, n.position.y), 0)
+    const node: CanvasNode = {
+      id: uuid(),
+      parentId: null,
+      branchPoint: null,
+      seedSelection: null,
+      sessionId: resumeSessionId,
+      workingDirectory: dir,
+      position: { x: 80, y: canvas.nodes.length ? maxY + 300 : 120 },
+      status: 'idle',
+      turns: [],
+      usage: emptyUsage(),
+      title: resumeSessionId ? 'Resumed' : 'Root',
+      unread: false
+    }
+    set({ canvas: { ...canvas, nodes: [...canvas.nodes, node] }, openNodeId: node.id })
+    return node
   },
 
   openNode(id) {
