@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { JSX } from 'react'
+import type { JSX, MouseEvent as ReactMouseEvent } from 'react'
 import type { CanvasNode, ContentBlock, Turn } from '../../../shared/types'
 import type { PendingPermission } from '../store'
 import { formatCost, formatTokens } from '../util'
@@ -25,9 +25,11 @@ export default function CliView(props: {
   const [input, setInput] = useState('')
   const [popover, setPopover] = useState<BranchPopover | null>(null)
   const [question, setQuestion] = useState('')
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; text: string } | null>(null)
   const transcriptRef = useRef<HTMLDivElement | null>(null)
   const questionRef = useRef<HTMLInputElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
+  const lastSelRef = useRef<string>('')
   const thinking = node.status === 'thinking' || node.status === 'awaiting_permission'
 
   // Auto scroll to bottom as the transcript grows.
@@ -39,15 +41,23 @@ export default function CliView(props: {
   // ctrl+c interrupts a thinking node.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.ctrlKey && (e.key === 'c' || e.key === 'C') && thinking) {
-        e.preventDefault()
-        props.onInterrupt(node.id)
+      if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+        if (popover) {
+          const text = window.getSelection()?.toString() || popover.text
+          void navigator.clipboard.writeText(text)
+          return
+        }
+        if (thinking) {
+          e.preventDefault()
+          props.onInterrupt(node.id)
+          return
+        }
       }
       if (e.key === 'Escape') props.onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [thinking, node.id])
+  }, [thinking, node.id, popover])
 
   useEffect(() => {
     if (popover) questionRef.current?.focus()
@@ -79,6 +89,7 @@ export default function CliView(props: {
     if (!sel || sel.isCollapsed) return
     const text = sel.toString().trim()
     if (!text) return
+    lastSelRef.current = text
     const anchor = sel.anchorNode
     const parent = anchor instanceof Element ? anchor : anchor?.parentElement ?? null
     const el = parent?.closest('[data-turn-index]') as HTMLElement | null
@@ -99,6 +110,14 @@ export default function CliView(props: {
     } catch {
       // Custom Highlight API not available.
     }
+  }
+
+  function handleContextMenu(e: ReactMouseEvent): void {
+    const live = window.getSelection()?.toString().trim() ?? ''
+    const text = live || lastSelRef.current
+    if (!text) return
+    e.preventDefault()
+    setCtxMenu({ x: e.clientX, y: e.clientY, text })
   }
 
   function submitBranch(): void {
@@ -151,7 +170,12 @@ export default function CliView(props: {
           </div>
         )}
 
-        <div className="cli-transcript" ref={transcriptRef} onMouseUp={handleMouseUp}>
+        <div
+          className="cli-transcript"
+          ref={transcriptRef}
+          onMouseUp={handleMouseUp}
+          onContextMenu={handleContextMenu}
+        >
           {node.turns.length === 0 && (
             <div className="cli-hint">
               This node is a Claude Code session running in <b>{node.workingDirectory}</b>.
@@ -239,6 +263,29 @@ export default function CliView(props: {
             </button>
           </div>
         </div>
+      )}
+      {ctxMenu && (
+        <>
+          <div
+            className="menu-backdrop"
+            onMouseDown={() => setCtxMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setCtxMenu(null)
+            }}
+          />
+          <div className="context-menu" style={{ left: ctxMenu.x, top: ctxMenu.y }}>
+            <button
+              className="menu-item"
+              onClick={() => {
+                void navigator.clipboard.writeText(ctxMenu.text)
+                setCtxMenu(null)
+              }}
+            >
+              Copy
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

@@ -754,5 +754,6 @@ body,
 
 /* Persistent branch-selection highlight (CSS Custom Highlight API) */
 ::highlight(forkfield-sel) {
-  background-color: #bcd2fb;
+  background-color: #2f6fed;
+  color: #ffffff;
 }
