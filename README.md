@@ -42,6 +42,8 @@ npm start
 
 The first run installs dependencies and fetches the Electron binary, so it takes a few minutes. After that it starts in a few seconds. The launcher handles the install, the binary fetch, and the build for you, and it passes `--no-sandbox`, which WSL needs.
 
+The app runs detached, so the command returns your shell prompt immediately and Forkfield keeps running in the background. Logs go to `forkfield.log` in the repo. Forkfield is single-instance: running `forkfield` again just focuses the existing window instead of opening a second one.
+
 For live development with hot reload, use `npm run dev` instead.
 
 ### Auth
