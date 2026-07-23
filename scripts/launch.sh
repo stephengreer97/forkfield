@@ -29,6 +29,10 @@ fi
 echo "Building Forkfield..."
 node node_modules/electron-vite/bin/electron-vite.js build >/dev/null
 
-echo "Launching Forkfield..."
-# --no-sandbox avoids the Chromium SUID-sandbox error that is common under WSL.
-exec node_modules/electron/dist/electron --no-sandbox .
+LOG="$REPO/forkfield.log"
+echo "Launching Forkfield in the background..."
+# --no-sandbox avoids the Chromium SUID-sandbox error common under WSL.
+# setsid + & detaches from this terminal so the app keeps running and the
+# shell prompt returns immediately. Logs go to the file above.
+setsid node_modules/electron/dist/electron --no-sandbox . >"$LOG" 2>&1 < /dev/null &
+echo "Forkfield is running in the background. Logs: $LOG"

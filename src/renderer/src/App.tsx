@@ -24,9 +24,13 @@ export default function App(): JSX.Element {
   useEffect(() => {
     let mounted = true
     window.forkfield.loadCanvas().then((c) => {
-      if (!mounted || !c) return
-      useStore.getState().setCanvas(c)
-      window.forkfield.setBypass(c.settings.bypassPermissions)
+      if (!mounted) return
+      if (c) {
+        useStore.getState().setCanvas(c)
+        window.forkfield.setBypass(c.settings.bypassPermissions)
+      } else {
+        useStore.getState().createEmptyCanvas()
+      }
     })
     return () => {
       mounted = false
@@ -109,12 +113,6 @@ export default function App(): JSX.Element {
     window.forkfield.setBypass(on)
   }, [])
 
-  // First session on an empty canvas: creates the canvas and its root.
-  const startFirstSession = useCallback(async () => {
-    const dir = await window.forkfield.chooseDirectory()
-    if (dir) useStore.getState().initCanvas(dir)
-  }, [])
-
   // Adds an independent root to the existing canvas. Optionally resumes a
   // Claude session by id. Both paths prompt for the folder.
   const addNewSession = useCallback(async (resumeSessionId?: string) => {
@@ -128,7 +126,11 @@ export default function App(): JSX.Element {
   }, [])
 
   if (!canvas) {
-    return <EmptyState onOpen={startFirstSession} />
+    return (
+      <div className="app">
+        <div className="canvas" />
+      </div>
+    )
   }
 
   const total = canvas.nodes.reduce(
@@ -156,6 +158,7 @@ export default function App(): JSX.Element {
         onMenu={onMenu}
         onRespondPermission={respondPermission}
       />
+      {canvas.nodes.length === 0 && <EmptyCanvasHint />}
       {openNode && (
         <CliView
           node={openNode}
@@ -429,20 +432,15 @@ function TopBar(props: {
   )
 }
 
-function EmptyState(props: { onOpen: () => void }): JSX.Element {
+function EmptyCanvasHint(): JSX.Element {
   return (
-    <div className="empty">
-      <div className="empty-card">
-        <h1>Forkfield</h1>
-        <p className="empty-lead">Choose a folder to start a Claude Code session in.</p>
-        <p className="empty-sub">
-          Forkfield opens a Claude Code session in the folder you pick, the same as running{' '}
-          <code>claude</code> in that directory. That session becomes your root node on the canvas.
-          From any response you can highlight text and branch off into new sessions.
+    <div className="empty-hint">
+      <div className="empty-hint-card">
+        <h2>No sessions yet</h2>
+        <p>
+          Click <b>New root</b> in the top right to start a Claude Code session in a folder you
+          choose. It becomes your root node, and you can branch off any response from there.
         </p>
-        <button className="btn primary lg" onClick={props.onOpen}>
-          Choose folder and start session
-        </button>
       </div>
     </div>
   )

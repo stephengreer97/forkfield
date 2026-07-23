@@ -708,3 +708,30 @@ body,
   outline: none;
   border-color: var(--accent);
 }
+
+/* Empty-canvas hint (blank canvas, prompt to click New root) */
+.empty-hint {
+  position: fixed;
+  inset: 46px 0 0 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 3;
+}
+.empty-hint-card {
+  max-width: 420px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 28px;
+  box-shadow: 0 8px 30px rgba(16, 24, 40, 0.08);
+}
+.empty-hint-card h2 {
+  margin: 0 0 8px;
+}
+.empty-hint-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}

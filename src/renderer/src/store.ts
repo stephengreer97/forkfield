@@ -21,6 +21,7 @@ interface Store {
   permissions: Record<string, PendingPermission | undefined>
 
   setCanvas(c: CanvasState | null): void
+  createEmptyCanvas(): void
   initCanvas(dir: string): string
   addRoot(dir: string, resumeSessionId?: string | null): CanvasNode | null
   openNode(id: string | null): void
@@ -81,6 +82,18 @@ export const useStore = create<Store>((set, get) => ({
 
   setCanvas(c) {
     set({ canvas: c })
+  },
+
+  createEmptyCanvas() {
+    set({
+      canvas: {
+        id: uuid(),
+        createdAt: Date.now(),
+        settings: { bypassPermissions: false },
+        nodes: []
+      },
+      openNodeId: null
+    })
   },
 
   initCanvas(dir) {
