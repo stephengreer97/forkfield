@@ -1,0 +1,17 @@
+appId: com.branchpad.app
+productName: Branchpad
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+  - node_modules/**/*
+win:
+  target:
+    - nsis
+    - zip
+  artifactName: ${productName}-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false

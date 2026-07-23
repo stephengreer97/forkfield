@@ -51,13 +51,33 @@ npx electron-vite dev
 
 ### Auth
 
-The app reuses your existing Claude Code authentication (the same credentials `claude` and `ant` use). Make sure you are logged in there first; no API key is stored in the app.
+The app reuses your existing Claude Code authentication (the same credentials `claude` and `ant` use). Make sure you are logged in there first; no API key is stored in the app. This applies to the packaged Windows app too: it needs Claude Code available and authenticated on the machine it runs on.
+
+## Package for Windows
+
+Two options.
+
+- **Portable zip (builds from WSL, no extra tools):**
+  ```
+  npm run pack:win
+  ```
+  Produces `dist/Branchpad-<version>-x64.zip` and `dist/win-unpacked/Branchpad.exe`. Copy the zip to Windows, unzip anywhere, and run `Branchpad.exe`. No install needed. The Agent SDK is pure JavaScript with no native binaries, so a WSL-built package runs on Windows.
+
+- **Installer (.exe, NSIS):**
+  ```
+  npm run dist:win
+  ```
+  This produces a proper installer under `dist/`. Building the NSIS installer on WSL/Linux needs Wine; the reliable path is to run this command from **Windows PowerShell** in the repo (run `npm install` there once first), where no Wine is required.
+
+The app has no custom icon yet, so it uses the default Electron icon. That is a later polish step.
 
 ## Scripts
 
 - `npm run dev` starts Electron with hot reload
 - `npm run build` builds the production bundles into `out/`
 - `npm run typecheck` typechecks main, preload, and renderer
+- `npm run pack:win` builds a portable Windows zip into `dist/`
+- `npm run dist:win` builds a Windows installer into `dist/` (NSIS; needs Windows or Wine)
 
 ## Layout
 
