@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Branchpad launcher for WSL. Builds the Linux app and opens it on the
+# Forkfield launcher for WSL. Builds the Linux app and opens it on the
 # Windows desktop through WSLg. Safe to run from anywhere.
 set -euo pipefail
 
@@ -26,9 +26,9 @@ if [ ! -x node_modules/electron/dist/electron ]; then
 fi
 
 # Build the current code, then launch.
-echo "Building Branchpad..."
+echo "Building Forkfield..."
 node node_modules/electron-vite/bin/electron-vite.js build >/dev/null
 
-echo "Launching Branchpad..."
+echo "Launching Forkfield..."
 # --no-sandbox avoids the Chromium SUID-sandbox error that is common under WSL.
 exec node_modules/electron/dist/electron --no-sandbox .

@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { SessionManager } from './sessions'
 import { loadCanvas, saveCanvas } from './persistence'
+import { loadSessionHistory } from './history'
 import type { SessionEvent, StartTurnParams, CanvasState } from '../shared/types'
 
 let win: BrowserWindow | null = null
@@ -61,6 +62,10 @@ ipcMain.handle('session:startTurn', async (_e, params: StartTurnParams) => {
   // Fire and forget: the turn streams events back over session:event.
   void sessions.startTurn(params)
 })
+
+ipcMain.handle('session:loadHistory', async (_e, sessionId: string) =>
+  loadSessionHistory(sessionId)
+)
 
 ipcMain.on('session:interrupt', (_e, nodeId: string) => {
   sessions.interrupt(nodeId)

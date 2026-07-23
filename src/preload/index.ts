@@ -1,12 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
-  BranchpadApi,
+  ForkfieldApi,
   CanvasState,
   SessionEvent,
   StartTurnParams
 } from '../shared/types'
 
-const api: BranchpadApi = {
+const api: ForkfieldApi = {
   chooseDirectory: () => ipcRenderer.invoke('dialog:chooseDirectory'),
   loadCanvas: () => ipcRenderer.invoke('canvas:load'),
   saveCanvas: (state: CanvasState) => ipcRenderer.invoke('canvas:save', state),
@@ -15,6 +15,7 @@ const api: BranchpadApi = {
   respondPermission: (requestId: string, allow: boolean) =>
     ipcRenderer.send('session:respondPermission', { requestId, allow }),
   setBypass: (on: boolean) => ipcRenderer.send('settings:setBypass', on),
+  loadHistory: (sessionId: string) => ipcRenderer.invoke('session:loadHistory', sessionId),
   onSessionEvent: (cb: (event: SessionEvent) => void) => {
     const listener = (_: unknown, event: SessionEvent): void => cb(event)
     ipcRenderer.on('session:event', listener)
@@ -22,4 +23,4 @@ const api: BranchpadApi = {
   }
 }
 
-contextBridge.exposeInMainWorld('branchpad', api)
+contextBridge.exposeInMainWorld('forkfield', api)

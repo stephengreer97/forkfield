@@ -23,10 +23,10 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     let mounted = true
-    window.branchpad.loadCanvas().then((c) => {
+    window.forkfield.loadCanvas().then((c) => {
       if (!mounted || !c) return
       useStore.getState().setCanvas(c)
-      window.branchpad.setBypass(c.settings.bypassPermissions)
+      window.forkfield.setBypass(c.settings.bypassPermissions)
     })
     return () => {
       mounted = false
@@ -34,7 +34,7 @@ export default function App(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    return window.branchpad.onSessionEvent((e) => useStore.getState().applyEvent(e))
+    return window.forkfield.onSessionEvent((e) => useStore.getState().applyEvent(e))
   }, [])
 
   const saveTimer = useRef<number | null>(null)
@@ -42,7 +42,7 @@ export default function App(): JSX.Element {
     if (!canvas) return
     if (saveTimer.current) window.clearTimeout(saveTimer.current)
     saveTimer.current = window.setTimeout(() => {
-      void window.branchpad.saveCanvas(canvas)
+      void window.forkfield.saveCanvas(canvas)
     }, 400)
   }, [canvas])
 
@@ -50,7 +50,7 @@ export default function App(): JSX.Element {
     const node = getNode(nodeId)
     if (!node) return
     useStore.getState().appendUserTurn(nodeId, text)
-    void window.branchpad.startTurn({
+    void window.forkfield.startTurn({
       nodeId,
       prompt: text,
       cwd: node.workingDirectory,
@@ -67,7 +67,7 @@ export default function App(): JSX.Element {
       if (!node) return
       const prompt = buildBranchPrompt(selection, question)
       useStore.getState().appendUserTurn(node.id, prompt)
-      void window.branchpad.startTurn({
+      void window.forkfield.startTurn({
         nodeId: node.id,
         prompt,
         cwd: parent.workingDirectory,
@@ -91,35 +91,40 @@ export default function App(): JSX.Element {
 
   const performDelete = useCallback((nodeId: string) => {
     const removed = useStore.getState().deleteNode(nodeId)
-    for (const id of removed) window.branchpad.interrupt(id)
+    for (const id of removed) window.forkfield.interrupt(id)
     setConfirmDelete(null)
   }, [])
 
   const respondPermission = useCallback((nodeId: string, requestId: string, allow: boolean) => {
-    window.branchpad.respondPermission(requestId, allow)
+    window.forkfield.respondPermission(requestId, allow)
     useStore.getState().clearPermission(nodeId)
   }, [])
 
   const interrupt = useCallback((nodeId: string) => {
-    window.branchpad.interrupt(nodeId)
+    window.forkfield.interrupt(nodeId)
   }, [])
 
   const toggleBypass = useCallback((on: boolean) => {
     useStore.getState().setBypass(on)
-    window.branchpad.setBypass(on)
+    window.forkfield.setBypass(on)
   }, [])
 
   // First session on an empty canvas: creates the canvas and its root.
   const startFirstSession = useCallback(async () => {
-    const dir = await window.branchpad.chooseDirectory()
+    const dir = await window.forkfield.chooseDirectory()
     if (dir) useStore.getState().initCanvas(dir)
   }, [])
 
   // Adds an independent root to the existing canvas. Optionally resumes a
   // Claude session by id. Both paths prompt for the folder.
   const addNewSession = useCallback(async (resumeSessionId?: string) => {
-    const dir = await window.branchpad.chooseDirectory()
-    if (dir) useStore.getState().addRoot(dir, resumeSessionId ?? null)
+    const dir = await window.forkfield.chooseDirectory()
+    if (!dir) return
+    const node = useStore.getState().addRoot(dir, resumeSessionId ?? null)
+    if (node && resumeSessionId) {
+      const turns = await window.forkfield.loadHistory(resumeSessionId)
+      if (turns && turns.length) useStore.getState().setNodeTurns(node.id, turns)
+    }
   }, [])
 
   if (!canvas) {
@@ -402,7 +407,7 @@ function TopBar(props: {
   return (
     <div className="topbar">
       <div className="topbar-left">
-        <span className="brand">Branchpad</span>
+        <span className="brand">Forkfield</span>
       </div>
       <div className="topbar-right">
         <span className="usage-pill" title="Total tokens and cost across all nodes">
@@ -428,10 +433,10 @@ function EmptyState(props: { onOpen: () => void }): JSX.Element {
   return (
     <div className="empty">
       <div className="empty-card">
-        <h1>Branchpad</h1>
+        <h1>Forkfield</h1>
         <p className="empty-lead">Choose a folder to start a Claude Code session in.</p>
         <p className="empty-sub">
-          Branchpad opens a Claude Code session in the folder you pick, the same as running{' '}
+          Forkfield opens a Claude Code session in the folder you pick, the same as running{' '}
           <code>claude</code> in that directory. That session becomes your root node on the canvas.
           From any response you can highlight text and branch off into new sessions.
         </p>

@@ -1,10 +1,10 @@
-# Branchpad Technical Spec
+# Forkfield Technical Spec
 
-Working name: **Branchpad** (rename freely; it is only used as the repo folder name so far).
+Working name: **Forkfield** (rename freely; it is only used as the repo folder name so far).
 
 ## 1. Goal
 
-Talking to Claude in a linear CLI is limiting. A single response may have ten points, and you may want to follow up on four of them separately. Branchpad replaces the single scrolling thread with an infinite canvas where any response can spawn a branch. You highlight text in a response, spawn a branch anchored to that selection, and keep exploring. Branches run concurrently. Every node is a full Claude Code session, so all Claude Code functionality is preserved.
+Talking to Claude in a linear CLI is limiting. A single response may have ten points, and you may want to follow up on four of them separately. Forkfield replaces the single scrolling thread with an infinite canvas where any response can spawn a branch. You highlight text in a response, spawn a branch anchored to that selection, and keep exploring. Branches run concurrently. Every node is a full Claude Code session, so all Claude Code functionality is preserved.
 
 ## 2. Core concepts
 

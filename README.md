@@ -1,4 +1,4 @@
-# Branchpad
+# Forkfield
 
 A branching canvas for Claude Code. Instead of one linear CLI thread, every response lives on an infinite canvas where you can highlight text and spawn a branch that inherits the conversation. Branches run concurrently, each node is a full Claude Code session, and you keep all Claude Code functionality.
 
@@ -29,11 +29,11 @@ See [SPEC.md](./SPEC.md) for the full technical design.
 
 One command, from anywhere:
 ```
-branchpad
+forkfield
 ```
-That builds the app and opens it on your Windows desktop through WSLg. A `branchpad` launcher is installed in `~/bin`. If `~/bin` is not on your PATH, run the script directly:
+That builds the app and opens it on your Windows desktop through WSLg. A `forkfield` launcher is installed in `~/bin`. If `~/bin` is not on your PATH, run the script directly:
 ```
-~/branchpad/scripts/launch.sh
+~/forkfield/scripts/launch.sh
 ```
 or, from inside the repo:
 ```
@@ -56,7 +56,7 @@ Two options.
   ```
   npm run pack:win
   ```
-  Produces `dist/Branchpad-<version>-x64.zip` and `dist/win-unpacked/Branchpad.exe`. Copy the zip to Windows, unzip anywhere, and run `Branchpad.exe`. No install needed. The Agent SDK is pure JavaScript with no native binaries, so a WSL-built package runs on Windows.
+  Produces `dist/Forkfield-<version>-x64.zip` and `dist/win-unpacked/Forkfield.exe`. Copy the zip to Windows, unzip anywhere, and run `Forkfield.exe`. No install needed. The Agent SDK is pure JavaScript with no native binaries, so a WSL-built package runs on Windows.
 
 - **Installer (.exe, NSIS):**
   ```

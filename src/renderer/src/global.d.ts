@@ -1,8 +1,8 @@
-import type { BranchpadApi } from '../../shared/types'
+import type { ForkfieldApi } from '../../shared/types'
 
 declare global {
   interface Window {
-    branchpad: BranchpadApi
+    forkfield: ForkfieldApi
   }
 }
 

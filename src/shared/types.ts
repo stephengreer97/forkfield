@@ -79,7 +79,7 @@ export type SessionEvent =
   | { type: 'permission_request'; nodeId: string; requestId: string; toolName: string; input: unknown }
   | { type: 'error'; nodeId: string; message: string }
 
-export interface BranchpadApi {
+export interface ForkfieldApi {
   chooseDirectory(): Promise<string | null>
   loadCanvas(): Promise<CanvasState | null>
   saveCanvas(state: CanvasState): Promise<void>
@@ -87,5 +87,6 @@ export interface BranchpadApi {
   interrupt(nodeId: string): void
   respondPermission(requestId: string, allow: boolean): void
   setBypass(on: boolean): void
+  loadHistory(sessionId: string): Promise<Turn[] | null>
   onSessionEvent(cb: (event: SessionEvent) => void): () => void
 }

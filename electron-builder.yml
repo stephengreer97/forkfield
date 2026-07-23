@@ -1,5 +1,5 @@
-appId: com.branchpad.app
-productName: Branchpad
+appId: com.forkfield.app
+productName: Forkfield
 directories:
   output: dist
 files:

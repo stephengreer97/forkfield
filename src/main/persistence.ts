@@ -6,7 +6,7 @@ import type { CanvasState } from '../shared/types'
 function canvasPath(): string {
   const dir = app.getPath('userData')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return join(dir, 'branchpad-canvas.json')
+  return join(dir, 'forkfield-canvas.json')
 }
 
 export function loadCanvas(): CanvasState | null {
