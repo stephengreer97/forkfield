@@ -735,3 +735,24 @@ body,
   color: var(--muted);
   line-height: 1.6;
 }
+
+/* Slash command chip */
+.cmd-line {
+  margin: 2px 0;
+}
+.cmd-chip {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--accent-weak);
+  color: var(--accent);
+  border: 1px solid #cfe0ff;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Persistent branch-selection highlight (CSS Custom Highlight API) */
+::highlight(forkfield-sel) {
+  background-color: #bcd2fb;
+}

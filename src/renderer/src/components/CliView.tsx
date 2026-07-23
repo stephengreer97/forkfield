@@ -68,6 +68,12 @@ export default function CliView(props: {
     }
   }, [popover])
 
+  // Clear the persistent highlight when the popover closes, and on unmount.
+  useEffect(() => {
+    if (!popover) clearSelectionHighlight()
+  }, [popover])
+  useEffect(() => () => clearSelectionHighlight(), [])
+
   function handleMouseUp(): void {
     const sel = window.getSelection()
     if (!sel || sel.isCollapsed) return
@@ -78,9 +84,21 @@ export default function CliView(props: {
     const el = parent?.closest('[data-turn-index]') as HTMLElement | null
     if (!el) return
     const turnIndex = Number(el.getAttribute('data-turn-index'))
-    const rect = sel.getRangeAt(0).getBoundingClientRect()
+    const range0 = sel.getRangeAt(0)
+    const rect = range0.getBoundingClientRect()
+    const range = range0.cloneRange()
     setQuestion('')
     setPopover({ text, turnIndex, x: rect.left, y: rect.bottom + 6 })
+    // Keep the selection visibly highlighted (independent of the live
+    // selection, which collapses when focus moves to the branch input).
+    try {
+      const HL = (window as unknown as { Highlight?: new (r: Range) => unknown }).Highlight
+      const reg = (CSS as unknown as { highlights?: { set(k: string, v: unknown): void } })
+        .highlights
+      if (HL && reg) reg.set('forkfield-sel', new HL(range))
+    } catch {
+      // Custom Highlight API not available.
+    }
   }
 
   function submitBranch(): void {
@@ -243,10 +261,23 @@ function TurnView(props: { turn: Turn; index: number }): JSX.Element {
 function BlockView(props: { block: ContentBlock; markdown: boolean }): JSX.Element {
   const b = props.block
   if (b.kind === 'text') {
+    const raw = b.text ?? ''
+    const cmd = parseCommand(raw)
+    if (cmd) {
+      return (
+        <div className="cmd-line">
+          <span className="cmd-chip">
+            /{cmd.name}
+            {cmd.args ? ' ' + cmd.args : ''}
+          </span>
+        </div>
+      )
+    }
+    const clean = cleanTags(raw)
     return props.markdown ? (
-      <Markdown text={b.text ?? ''} />
+      <Markdown text={clean} />
     ) : (
-      <div className="block-text">{b.text}</div>
+      <div className="block-text">{clean}</div>
     )
   }
   if (b.kind === 'tool_use') {
@@ -270,5 +301,42 @@ function safeJson(v: unknown): string {
     return JSON.stringify(v, null, 2)
   } catch {
     return String(v)
+  }
+}
+
+// Detect a slash command, either the transcript's wrapped form
+// (<command-name>/model</command-name>...) or a plainly typed "/model args".
+function parseCommand(text: string): { name: string; args: string } | null {
+  const wrapped = text.match(/<command-name>\s*\/?\s*([^<]*?)\s*<\/command-name>/)
+  if (wrapped) {
+    const name = wrapped[1].trim()
+    if (!name) return null
+    const am = text.match(/<command-args>\s*([^<]*?)\s*<\/command-args>/)
+    return { name, args: am ? am[1].trim() : '' }
+  }
+  const t = text.trim()
+  if (t.includes('\n')) return null
+  const plain = t.match(/^\/([a-zA-Z][a-zA-Z0-9_-]*)(?:\s+(.*))?$/)
+  if (plain) return { name: plain[1], args: plain[2]?.trim() ?? '' }
+  return null
+}
+
+// Strip transcript wrapper tags from ordinary text.
+function cleanTags(text: string): string {
+  return text
+    .replace(/<command-message>[\s\S]*?<\/command-message>/g, '')
+    .replace(/<command-name>[\s\S]*?<\/command-name>/g, '')
+    .replace(/<command-args>[\s\S]*?<\/command-args>/g, '')
+    .replace(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/g, '$1')
+    .trim()
+}
+
+function clearSelectionHighlight(): void {
+  try {
+    ;(CSS as unknown as { highlights?: { delete(k: string): void } }).highlights?.delete(
+      'forkfield-sel'
+    )
+  } catch {
+    // Custom Highlight API not available.
   }
 }
