@@ -16,6 +16,14 @@ const api: ForkfieldApi = {
     ipcRenderer.send('session:respondPermission', { requestId, allow }),
   setBypass: (on: boolean) => ipcRenderer.send('settings:setBypass', on),
   loadHistory: (sessionId: string) => ipcRenderer.invoke('session:loadHistory', sessionId),
+  saveFile: (canvas: CanvasState, path?: string | null) =>
+    ipcRenderer.invoke('file:save', { canvas, path: path ?? null }),
+  openFile: () => ipcRenderer.invoke('file:open'),
+  onMenu: (cb: (action: string) => void) => {
+    const listener = (_: unknown, action: string): void => cb(action)
+    ipcRenderer.on('menu', listener)
+    return () => ipcRenderer.removeListener('menu', listener)
+  },
   onSessionEvent: (cb: (event: SessionEvent) => void) => {
     const listener = (_: unknown, event: SessionEvent): void => cb(event)
     ipcRenderer.on('session:event', listener)

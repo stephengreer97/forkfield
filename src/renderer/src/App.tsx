@@ -20,6 +20,10 @@ export default function App(): JSX.Element {
   )
   const [newRootChoice, setNewRootChoice] = useState(false)
   const [resumePrompt, setResumePrompt] = useState(false)
+  const [currentFilePath, setCurrentFilePath] = useState<string | null>(() =>
+    localStorage.getItem('forkfield:file')
+  )
+  const filePathRef = useRef<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -112,6 +116,51 @@ export default function App(): JSX.Element {
     useStore.getState().setBypass(on)
     window.forkfield.setBypass(on)
   }, [])
+
+  useEffect(() => {
+    filePathRef.current = currentFilePath
+    if (currentFilePath) localStorage.setItem('forkfield:file', currentFilePath)
+    else localStorage.removeItem('forkfield:file')
+    const name = currentFilePath ? currentFilePath.split(/[\\/]/).pop() : null
+    document.title = name ? `Forkfield — ${name}` : 'Forkfield'
+  }, [currentFilePath])
+
+  const handleNew = useCallback(() => {
+    useStore.getState().createEmptyCanvas()
+    setCurrentFilePath(null)
+  }, [])
+
+  const handleOpen = useCallback(async () => {
+    const res = await window.forkfield.openFile()
+    if (!res) return
+    useStore.getState().setCanvas(res.canvas)
+    window.forkfield.setBypass(res.canvas.settings.bypassPermissions)
+    useStore.getState().openNode(null)
+    setCurrentFilePath(res.path)
+  }, [])
+
+  const handleSave = useCallback(async () => {
+    const c = useStore.getState().canvas
+    if (!c) return
+    const path = await window.forkfield.saveFile(c, filePathRef.current)
+    if (path) setCurrentFilePath(path)
+  }, [])
+
+  const handleSaveAs = useCallback(async () => {
+    const c = useStore.getState().canvas
+    if (!c) return
+    const path = await window.forkfield.saveFile(c, null)
+    if (path) setCurrentFilePath(path)
+  }, [])
+
+  useEffect(() => {
+    return window.forkfield.onMenu((action) => {
+      if (action === 'new') handleNew()
+      else if (action === 'open') void handleOpen()
+      else if (action === 'save') void handleSave()
+      else if (action === 'saveAs') void handleSaveAs()
+    })
+  }, [handleNew, handleOpen, handleSave, handleSaveAs])
 
   // Adds an independent root to the existing canvas. Optionally resumes a
   // Claude session by id. Both paths prompt for the folder.

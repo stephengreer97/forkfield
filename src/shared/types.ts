@@ -88,5 +88,8 @@ export interface ForkfieldApi {
   respondPermission(requestId: string, allow: boolean): void
   setBypass(on: boolean): void
   loadHistory(sessionId: string): Promise<Turn[] | null>
+  saveFile(canvas: CanvasState, path?: string | null): Promise<string | null>
+  openFile(): Promise<{ path: string; canvas: CanvasState } | null>
+  onMenu(cb: (action: string) => void): () => void
   onSessionEvent(cb: (event: SessionEvent) => void): () => void
 }

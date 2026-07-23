@@ -50,6 +50,16 @@ For live development with hot reload, use `npm run dev` instead.
 
 The app reuses your existing Claude Code authentication (the same credentials `claude` and `ant` use). Make sure you are logged in there first; no API key is stored in the app. This applies to the packaged Windows app too: it needs Claude Code available and authenticated on the machine it runs on.
 
+## Saving and reopening sessions
+
+Forkfield has a minimal **File** menu (the stock Edit/View/Window menus are removed):
+
+- **New** starts an empty canvas.
+- **Open** loads a `.forkfield` file.
+- **Save** / **Save As** write the current canvas to a `.forkfield` file.
+
+A `.forkfield` file is the whole canvas as JSON: node ids, parent connections, positions, the folder each node runs in, the Claude session ids, and the transcripts. Reopening it restores the tree and each node resumes its Claude session by id, so you can pick a branch back up later. Standard shortcuts work (Ctrl+N/O/S, Ctrl+Shift+S). Forkfield also keeps an automatic recovery copy so a crash does not lose the current canvas. DevTools is on F12.
+
 ## Package for Windows
 
 Two options.
