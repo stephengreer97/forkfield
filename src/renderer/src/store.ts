@@ -381,6 +381,13 @@ export const useStore = create<Store>((set, get) => ({
               [e.nodeId]: { requestId: e.requestId, toolName: e.toolName, input: e.input }
             }
           }
+        case 'slash_commands':
+          return {
+            canvas: replaceNode(canvas, e.nodeId, (n) => {
+              n.slashCommands = e.commands
+              return n
+            })
+          }
         case 'error':
           return {
             canvas: replaceNode(canvas, e.nodeId, (n) => {

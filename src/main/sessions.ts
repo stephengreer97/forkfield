@@ -140,9 +140,18 @@ export class SessionManager {
   private handleMessage(rt: NodeRuntime, turnId: string, message: any): void {
     switch (message?.type) {
       case 'system': {
-        if (message.subtype === 'init' && message.session_id) {
-          rt.sessionId = message.session_id
-          this.send({ type: 'session', nodeId: rt.nodeId, sessionId: message.session_id })
+        if (message.subtype === 'init') {
+          if (message.session_id) {
+            rt.sessionId = message.session_id
+            this.send({ type: 'session', nodeId: rt.nodeId, sessionId: message.session_id })
+          }
+          if (Array.isArray(message.slash_commands)) {
+            this.send({
+              type: 'slash_commands',
+              nodeId: rt.nodeId,
+              commands: message.slash_commands as string[]
+            })
+          }
         }
         break
       }

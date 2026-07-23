@@ -26,11 +26,27 @@ export default function CliView(props: {
   const [popover, setPopover] = useState<BranchPopover | null>(null)
   const [question, setQuestion] = useState('')
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; text: string } | null>(null)
+  const [acIndex, setAcIndex] = useState(0)
+  const [acDismissed, setAcDismissed] = useState(false)
   const transcriptRef = useRef<HTMLDivElement | null>(null)
   const questionRef = useRef<HTMLInputElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const lastSelRef = useRef<string>('')
   const thinking = node.status === 'thinking' || node.status === 'awaiting_permission'
+
+  // Slash command autocomplete, driven by the command list the SDK advertises.
+  const commands = node.slashCommands ?? []
+  const acQuery =
+    input.startsWith('/') && !input.includes(' ') ? input.slice(1).toLowerCase() : null
+  const acMatches =
+    acQuery !== null ? commands.filter((c) => c.toLowerCase().startsWith(acQuery)).slice(0, 8) : []
+  const showAc = acMatches.length > 0 && !acDismissed
+  const acActive = Math.min(acIndex, acMatches.length - 1)
+
+  function acceptCompletion(cmd: string): void {
+    setInput('/' + cmd + ' ')
+    setAcDismissed(true)
+  }
 
   // Auto scroll to bottom as the transcript grows.
   useEffect(() => {
@@ -218,11 +234,53 @@ export default function CliView(props: {
         )}
 
         <div className="cli-input">
+          {showAc && (
+            <div className="autocomplete">
+              {acMatches.map((c, i) => (
+                <button
+                  key={c}
+                  className={`ac-item ${i === acActive ? 'active' : ''}`}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    acceptCompletion(c)
+                  }}
+                >
+                  /{c}
+                </button>
+              ))}
+            </div>
+          )}
           <textarea
             value={input}
             placeholder="Message this node, or / for commands"
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value)
+              setAcIndex(0)
+              setAcDismissed(false)
+            }}
             onKeyDown={(e) => {
+              if (showAc) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setAcIndex((i) => (i + 1) % acMatches.length)
+                  return
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setAcIndex((i) => (i - 1 + acMatches.length) % acMatches.length)
+                  return
+                }
+                if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+                  e.preventDefault()
+                  acceptCompletion(acMatches[acActive])
+                  return
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setAcDismissed(true)
+                  return
+                }
+              }
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
                 send()

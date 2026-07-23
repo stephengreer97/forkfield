@@ -49,6 +49,7 @@ export interface CanvasNode {
   title: string
   unread: boolean
   model?: string | null
+  slashCommands?: string[]
 }
 
 export interface CanvasSettings {
@@ -79,6 +80,7 @@ export type SessionEvent =
   | { type: 'tool_result'; nodeId: string; turnId: string; text: string; isError: boolean }
   | { type: 'turn_done'; nodeId: string; turnId: string; usage: Usage; sessionId: string | null }
   | { type: 'permission_request'; nodeId: string; requestId: string; toolName: string; input: unknown }
+  | { type: 'slash_commands'; nodeId: string; commands: string[] }
   | { type: 'error'; nodeId: string; message: string }
 
 export interface ForkfieldApi {
