@@ -17,6 +17,10 @@ const MODEL_OPTIONS: { label: string; value: string | null; desc: string }[] = [
   { label: 'Haiku', value: 'haiku', desc: 'Fastest and cheapest' }
 ]
 
+// Interactive built-in commands that the SDK cannot run for us, so Forkfield
+// handles them natively. Everything else passes through to the SDK.
+const NATIVE_COMMANDS = new Set(['model', 'clear', 'config', 'login'])
+
 export default function App(): JSX.Element {
   const canvas = useStore((s) => s.canvas)
   const openNodeId = useStore((s) => s.openNodeId)
@@ -28,6 +32,9 @@ export default function App(): JSX.Element {
   const [newRootChoice, setNewRootChoice] = useState(false)
   const [resumePrompt, setResumePrompt] = useState(false)
   const [modelPicker, setModelPicker] = useState<{ nodeId: string } | null>(null)
+  const [confirmClear, setConfirmClear] = useState<{ nodeId: string } | null>(null)
+  const [configDialog, setConfigDialog] = useState<{ nodeId: string } | null>(null)
+  const [loginInfo, setLoginInfo] = useState(false)
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(() =>
     localStorage.getItem('forkfield:file')
   )
@@ -65,13 +72,22 @@ export default function App(): JSX.Element {
   const sendMessage = useCallback((nodeId: string, text: string) => {
     const node = getNode(nodeId)
     if (!node) return
-    // /model is not an interactive SDK command; handle it in Forkfield instead.
-    const mm = text.trim().match(/^\/model(?:\s+(.+))?$/i)
-    if (mm) {
+    // Interactive built-ins are handled by Forkfield; the rest go to the SDK.
+    const cmd = text.trim().match(/^\/([a-zA-Z][\w-]*)(?:\s+(.+))?$/)
+    if (cmd && NATIVE_COMMANDS.has(cmd[1].toLowerCase())) {
+      const name = cmd[1].toLowerCase()
+      const arg = cmd[2]?.trim()
       useStore.getState().appendUserTurn(nodeId, text)
-      const arg = mm[1]?.trim()
-      if (arg) useStore.getState().setNodeModel(nodeId, arg)
-      else setModelPicker({ nodeId })
+      if (name === 'model') {
+        if (arg) useStore.getState().setNodeModel(nodeId, arg)
+        else setModelPicker({ nodeId })
+      } else if (name === 'clear') {
+        setConfirmClear({ nodeId })
+      } else if (name === 'config') {
+        setConfigDialog({ nodeId })
+      } else if (name === 'login') {
+        setLoginInfo(true)
+      }
       return
     }
     useStore.getState().appendUserTurn(nodeId, text)
@@ -331,6 +347,91 @@ export default function App(): JSX.Element {
           }))}
         />
       )}
+      {confirmClear && (
+        <ConfirmDialog
+          title="Clear conversation"
+          message="This clears this node's transcript and starts a fresh Claude session in the same folder on your next message. This cannot be undone."
+          confirmLabel="Clear"
+          danger
+          onConfirm={() => {
+            window.forkfield.interrupt(confirmClear.nodeId)
+            useStore.getState().clearNodeSession(confirmClear.nodeId)
+            setConfirmClear(null)
+          }}
+          onCancel={() => setConfirmClear(null)}
+        />
+      )}
+      {configDialog && (
+        <ConfigDialog
+          node={canvas.nodes.find((n) => n.id === configDialog.nodeId) ?? null}
+          bypass={canvas.settings.bypassPermissions}
+          onChangeModel={() => {
+            const id = configDialog.nodeId
+            setConfigDialog(null)
+            setModelPicker({ nodeId: id })
+          }}
+          onToggleBypass={toggleBypass}
+          onClose={() => setConfigDialog(null)}
+        />
+      )}
+      {loginInfo && (
+        <ConfirmDialog
+          title="Sign in"
+          message="Forkfield uses your existing Claude Code login. To sign in or switch accounts, run 'claude' (or 'ant auth login') in a terminal, then start a new session here."
+          confirmLabel="OK"
+          onConfirm={() => setLoginInfo(false)}
+          onCancel={() => setLoginInfo(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function ConfigDialog(props: {
+  node: CanvasNode | null
+  bypass: boolean
+  onChangeModel: () => void
+  onToggleBypass: (on: boolean) => void
+  onClose: () => void
+}): JSX.Element | null {
+  if (!props.node) return null
+  const node = props.node
+  return (
+    <div
+      className="confirm-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) props.onClose()
+      }}
+    >
+      <div className="confirm-dialog">
+        <h3>Node settings</h3>
+        <div className="config-row">
+          <span className="config-label">Folder</span>
+          <span className="config-value">{node.workingDirectory}</span>
+        </div>
+        <div className="config-row">
+          <span className="config-label">Model</span>
+          <span className="config-value">
+            {node.model ?? 'default'}
+            <button className="btn tiny" style={{ marginLeft: 8 }} onClick={props.onChangeModel}>
+              Change
+            </button>
+          </span>
+        </div>
+        <label className="config-row config-toggle">
+          <span className="config-label">Skip permissions (all nodes)</span>
+          <input
+            type="checkbox"
+            checked={props.bypass}
+            onChange={(e) => props.onToggleBypass(e.target.checked)}
+          />
+        </label>
+        <div className="confirm-actions">
+          <button className="btn primary" onClick={props.onClose}>
+            Done
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -35,6 +35,7 @@ interface Store {
   appendUserTurn(nodeId: string, text: string): void
   setNodeTurns(nodeId: string, turns: Turn[]): void
   setNodeModel(nodeId: string, model: string | null): void
+  clearNodeSession(nodeId: string): void
   moveNode(nodeId: string, x: number, y: number): void
   deleteNode(nodeId: string): string[]
   clearPermission(nodeId: string): void
@@ -232,6 +233,21 @@ export const useStore = create<Store>((set, get) => ({
         ? {
             canvas: replaceNode(s.canvas, nodeId, (n) => {
               n.model = model
+              return n
+            })
+          }
+        : s
+    )
+  },
+
+  clearNodeSession(nodeId) {
+    set((s) =>
+      s.canvas
+        ? {
+            canvas: replaceNode(s.canvas, nodeId, (n) => {
+              n.turns = []
+              n.sessionId = null
+              n.status = 'idle'
               return n
             })
           }

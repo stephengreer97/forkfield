@@ -429,14 +429,21 @@ function parseCommand(text: string): { name: string; args: string } | null {
   return null
 }
 
-// Strip transcript wrapper tags from ordinary text.
+// Strip terminal ANSI color codes and transcript wrapper tags from text that
+// was produced for a terminal but is rendered as HTML here.
 function cleanTags(text: string): string {
-  return text
-    .replace(/<command-message>[\s\S]*?<\/command-message>/g, '')
-    .replace(/<command-name>[\s\S]*?<\/command-name>/g, '')
-    .replace(/<command-args>[\s\S]*?<\/command-args>/g, '')
-    .replace(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/g, '$1')
-    .trim()
+  return (
+    text
+      // ANSI SGR sequences like ESC[1m (bold), ESC[2m (dim), ESC[22m.
+      .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+      .replace(/\[[0-9;]*m(?!\])/g, '')
+      .replace(/<command-message>[\s\S]*?<\/command-message>/g, '')
+      .replace(/<command-name>[\s\S]*?<\/command-name>/g, '')
+      .replace(/<command-args>[\s\S]*?<\/command-args>/g, '')
+      .replace(/<local-command-caveat>[\s\S]*?<\/local-command-caveat>/g, '')
+      .replace(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/g, '$1')
+      .trim()
+  )
 }
 
 function clearSelectionHighlight(): void {

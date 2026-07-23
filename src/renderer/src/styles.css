@@ -488,6 +488,33 @@ body,
   background: var(--accent-weak);
   color: var(--accent);
 }
+
+/* Config dialog rows */
+.config-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.config-toggle {
+  cursor: pointer;
+}
+.config-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+.config-value {
+  font-size: 13px;
+  text-align: right;
+  word-break: break-all;
+  display: flex;
+  align-items: center;
+}
+.config-row + .confirm-actions {
+  margin-top: 16px;
+}
 .cli-input textarea {
   flex: 1 1 auto;
   resize: none;

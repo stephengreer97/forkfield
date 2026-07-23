@@ -67,7 +67,7 @@ export class SessionManager {
   async startTurn(params: StartTurnParams): Promise<void> {
     const rt = this.runtime(params.nodeId, params.cwd)
     if (rt.busy) return
-    const resume = params.resumeSessionId ?? rt.sessionId ?? undefined
+    const resume = params.resumeSessionId ?? undefined
     await this.run(rt, params.prompt, resume, params.fork, params.model)
   }
 
