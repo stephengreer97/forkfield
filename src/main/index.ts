@@ -160,6 +160,3 @@ ipcMain.on('session:respondPermission', (_e, payload: { requestId: string; allow
   sessions.resolvePermission(payload.requestId, payload.allow)
 })
 
-ipcMain.on('settings:setBypass', (_e, on: boolean) => {
-  sessions.setBypass(!!on)
-})

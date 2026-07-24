@@ -1,12 +1,14 @@
 import { create } from 'zustand'
 import type {
   CanvasNode,
+  CanvasSettings,
   CanvasState,
+  PermissionMode,
   SessionEvent,
   Turn,
   Usage
 } from '../../shared/types'
-import { emptyUsage } from '../../shared/types'
+import { defaultSettings, emptyUsage } from '../../shared/types'
 import { childCount, descendantIds } from './util'
 
 export interface PendingPermission {
@@ -25,7 +27,8 @@ interface Store {
   initCanvas(dir: string): string
   addRoot(dir: string, resumeSessionId?: string | null): CanvasNode | null
   openNode(id: string | null): void
-  setBypass(on: boolean): void
+  updateSettings(patch: Partial<CanvasSettings>): void
+  setNodePermission(nodeId: string, mode: PermissionMode | null): void
 
   addBranch(
     parentId: string,
@@ -83,6 +86,17 @@ export const useStore = create<Store>((set, get) => ({
   permissions: {},
 
   setCanvas(c) {
+    if (c) {
+      const legacy = c.settings as unknown as { bypassPermissions?: boolean }
+      c = {
+        ...c,
+        settings: {
+          ...defaultSettings(),
+          ...c.settings,
+          ...(legacy?.bypassPermissions ? { permissionMode: 'skip' as PermissionMode } : {})
+        }
+      }
+    }
     set({ canvas: c })
   },
 
@@ -91,7 +105,7 @@ export const useStore = create<Store>((set, get) => ({
       canvas: {
         id: uuid(),
         createdAt: Date.now(),
-        settings: { bypassPermissions: false },
+        settings: defaultSettings(),
         nodes: []
       },
       openNodeId: null
@@ -117,7 +131,7 @@ export const useStore = create<Store>((set, get) => ({
     const canvas: CanvasState = {
       id: uuid(),
       createdAt: Date.now(),
-      settings: { bypassPermissions: false },
+      settings: defaultSettings(),
       nodes: [root]
     }
     set({ canvas, openNodeId: rootId })
@@ -161,10 +175,23 @@ export const useStore = create<Store>((set, get) => ({
     })
   },
 
-  setBypass(on) {
+  updateSettings(patch) {
     set((s) =>
       s.canvas
-        ? { canvas: { ...s.canvas, settings: { ...s.canvas.settings, bypassPermissions: on } } }
+        ? { canvas: { ...s.canvas, settings: { ...s.canvas.settings, ...patch } } }
+        : s
+    )
+  },
+
+  setNodePermission(nodeId, mode) {
+    set((s) =>
+      s.canvas
+        ? {
+            canvas: replaceNode(s.canvas, nodeId, (n) => {
+              n.permissionMode = mode
+              return n
+            })
+          }
         : s
     )
   },

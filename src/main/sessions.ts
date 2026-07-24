@@ -47,13 +47,8 @@ interface NodeRuntime {
 export class SessionManager {
   private runtimes = new Map<string, NodeRuntime>()
   private pendingPermissions = new Map<string, (allow: boolean) => void>()
-  private bypass = false
 
   constructor(private send: (event: SessionEvent) => void) {}
-
-  setBypass(on: boolean): void {
-    this.bypass = on
-  }
 
   resolvePermission(requestId: string, allow: boolean): void {
     const resolve = this.pendingPermissions.get(requestId)
@@ -83,7 +78,7 @@ export class SessionManager {
     const rt = this.runtime(params.nodeId, params.cwd)
     if (rt.busy) return
     const resume = params.resumeSessionId ?? undefined
-    await this.run(rt, params.prompt, resume, params.fork, params.model)
+    await this.run(rt, params.prompt, resume, params.fork, params.model, params.bypass)
   }
 
   private async run(
@@ -91,7 +86,8 @@ export class SessionManager {
     prompt: string,
     resume: string | undefined,
     fork: boolean,
-    model: string | undefined
+    model: string | undefined,
+    bypass: boolean
   ): Promise<void> {
     rt.busy = true
     const abort = new AbortController()
@@ -105,7 +101,7 @@ export class SessionManager {
         cwd: rt.cwd,
         abortController: abort,
         appendSystemPrompt: CONCURRENCY_GUIDANCE,
-        permissionMode: this.bypass ? 'bypassPermissions' : 'default',
+        permissionMode: bypass ? 'bypassPermissions' : 'default',
         includePartialMessages: false
       }
       if (resume) options.resume = resume
@@ -113,7 +109,7 @@ export class SessionManager {
       if (model) options.model = model
       const claudePath = getClaudeExecutable()
       if (claudePath) options.pathToClaudeCodeExecutable = claudePath
-      if (!this.bypass) {
+      if (!bypass) {
         options.canUseTool = (toolName: string, input: unknown) =>
           this.askPermission(rt, toolName, input)
       }

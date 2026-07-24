@@ -15,6 +15,7 @@ interface BranchPopover {
 export default function CliView(props: {
   node: CanvasNode
   anim?: 'collapse' | 'enter' | null
+  showToolDetail?: boolean
   permission?: PendingPermission
   onClose: () => void
   onSend: (nodeId: string, text: string) => void
@@ -256,7 +257,12 @@ export default function CliView(props: {
             </div>
           )}
           {node.turns.map((turn, idx) => (
-            <TurnView key={turn.id} turn={turn} index={idx} />
+            <TurnView
+              key={turn.id}
+              turn={turn}
+              index={idx}
+              showToolDetail={props.showToolDetail !== false}
+            />
           ))}
           {thinking && (
             <div className="thinking-indicator" aria-label="Claude is thinking">
@@ -445,21 +451,34 @@ export default function CliView(props: {
   )
 }
 
-function TurnView(props: { turn: Turn; index: number }): JSX.Element {
+function TurnView(props: {
+  turn: Turn
+  index: number
+  showToolDetail: boolean
+}): JSX.Element {
   const { turn, index } = props
   return (
     <div className={`turn turn-${turn.role}`} data-turn-index={index}>
       <div className="turn-role">{turn.role === 'user' ? 'you' : 'claude'}</div>
       <div className="turn-body">
         {turn.blocks.map((b, i) => (
-          <BlockView key={i} block={b} markdown={turn.role === 'assistant'} />
+          <BlockView
+            key={i}
+            block={b}
+            markdown={turn.role === 'assistant'}
+            showToolDetail={props.showToolDetail}
+          />
         ))}
       </div>
     </div>
   )
 }
 
-function BlockView(props: { block: ContentBlock; markdown: boolean }): JSX.Element {
+function BlockView(props: {
+  block: ContentBlock
+  markdown: boolean
+  showToolDetail: boolean
+}): JSX.Element | null {
   const b = props.block
   if (b.kind === 'text') {
     const raw = b.text ?? ''
@@ -482,6 +501,13 @@ function BlockView(props: { block: ContentBlock; markdown: boolean }): JSX.Eleme
     )
   }
   if (b.kind === 'tool_use') {
+    if (!props.showToolDetail) {
+      return (
+        <div className="block-tool compact">
+          ▷ <b>{b.toolName}</b>
+        </div>
+      )
+    }
     return (
       <div className="block-tool">
         ▷ <b>{b.toolName}</b>
@@ -489,6 +515,7 @@ function BlockView(props: { block: ContentBlock; markdown: boolean }): JSX.Eleme
       </div>
     )
   }
+  if (!props.showToolDetail) return null
   return (
     <details className={`block-result ${b.isError ? 'error' : ''}`}>
       <summary>{b.isError ? 'tool error' : 'tool result'}</summary>

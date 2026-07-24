@@ -14,7 +14,6 @@ const api: ForkfieldApi = {
   interrupt: (nodeId: string) => ipcRenderer.send('session:interrupt', nodeId),
   respondPermission: (requestId: string, allow: boolean) =>
     ipcRenderer.send('session:respondPermission', { requestId, allow }),
-  setBypass: (on: boolean) => ipcRenderer.send('settings:setBypass', on),
   loadHistory: (sessionId: string) => ipcRenderer.invoke('session:loadHistory', sessionId),
   saveFile: (canvas: CanvasState, path?: string | null) =>
     ipcRenderer.invoke('file:save', { canvas, path: path ?? null }),

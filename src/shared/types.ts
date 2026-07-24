@@ -50,10 +50,43 @@ export interface CanvasNode {
   unread: boolean
   model?: string | null
   slashCommands?: string[]
+  permissionMode?: PermissionMode | null
 }
 
+export type PermissionMode = 'ask' | 'skip'
+export type ThemePref = 'light' | 'dark' | 'system'
+export type Isolation = 'shared' | 'worktree'
+
 export interface CanvasSettings {
-  bypassPermissions: boolean
+  permissionMode: PermissionMode
+  autoRouter: boolean
+  defaultModel: string | null
+  maxConcurrent: number
+  spendCapUsd: number | null
+  isolation: Isolation
+  theme: ThemePref
+  notifyOnComplete: boolean
+  confirmDelete: boolean
+  switchOnBranch: boolean
+  showToolDetail: boolean
+  fontScale: number
+}
+
+export function defaultSettings(): CanvasSettings {
+  return {
+    permissionMode: 'ask',
+    autoRouter: false,
+    defaultModel: null,
+    maxConcurrent: 4,
+    spendCapUsd: null,
+    isolation: 'shared',
+    theme: 'light',
+    notifyOnComplete: true,
+    confirmDelete: true,
+    switchOnBranch: true,
+    showToolDetail: true,
+    fontScale: 1
+  }
 }
 
 export interface CanvasState {
@@ -70,6 +103,7 @@ export interface StartTurnParams {
   resumeSessionId: string | null
   fork: boolean
   model?: string
+  bypass: boolean
 }
 
 export type SessionEvent =
@@ -90,7 +124,6 @@ export interface ForkfieldApi {
   startTurn(params: StartTurnParams): Promise<void>
   interrupt(nodeId: string): void
   respondPermission(requestId: string, allow: boolean): void
-  setBypass(on: boolean): void
   loadHistory(sessionId: string): Promise<Turn[] | null>
   saveFile(canvas: CanvasState, path?: string | null): Promise<string | null>
   openFile(): Promise<{ path: string; canvas: CanvasState } | null>
