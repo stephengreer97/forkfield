@@ -258,7 +258,13 @@ export default function CliView(props: {
           {node.turns.map((turn, idx) => (
             <TurnView key={turn.id} turn={turn} index={idx} />
           ))}
-          {thinking && <div className="cli-thinking">…</div>}
+          {thinking && (
+            <div className="thinking-indicator" aria-label="Claude is thinking">
+              <span className="thinking-dot" />
+              <span className="thinking-dot" />
+              <span className="thinking-dot" />
+            </div>
+          )}
         </div>
 
         {props.permission && (

@@ -43,7 +43,15 @@ export default function NodeCard({ data }: NodeProps): JSX.Element {
         <span className={`node-status status-${n.status}`}>{STATUS_LABEL[n.status]}</span>
       </div>
       <div className="node-preview">
-        {n.status === 'thinking' && n.turns.length === 0 ? '…' : nodePreview(n)}
+        {n.status === 'thinking' ? (
+          <div className="thinking-indicator small">
+            <span className="thinking-dot" />
+            <span className="thinking-dot" />
+            <span className="thinking-dot" />
+          </div>
+        ) : (
+          nodePreview(n)
+        )}
       </div>
       {d.permission && (
         <div className="node-permission" onClick={(e) => e.stopPropagation()}>
