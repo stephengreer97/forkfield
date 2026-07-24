@@ -14,6 +14,7 @@ interface BranchPopover {
 
 export default function CliView(props: {
   node: CanvasNode
+  anim?: 'collapse' | 'enter' | null
   permission?: PendingPermission
   onClose: () => void
   onSend: (nodeId: string, text: string) => void
@@ -209,7 +210,11 @@ export default function CliView(props: {
         if (e.target === e.currentTarget) props.onClose()
       }}
     >
-      <div className="cli-panel">
+      <div
+        className={`cli-panel${
+          props.anim === 'collapse' ? ' anim-collapse' : props.anim === 'enter' ? ' anim-enter' : ''
+        }`}
+      >
         <div className="cli-header">
           <div className="cli-title">
             <span className="cli-node-title">{node.title}</span>

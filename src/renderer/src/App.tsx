@@ -32,6 +32,7 @@ export default function App(): JSX.Element {
   const [newRootChoice, setNewRootChoice] = useState(false)
   const [resumePrompt, setResumePrompt] = useState(false)
   const [modelPicker, setModelPicker] = useState<{ nodeId: string } | null>(null)
+  const [branchAnim, setBranchAnim] = useState<'collapse' | 'enter' | null>(null)
   const [confirmClear, setConfirmClear] = useState<{ nodeId: string } | null>(null)
   const [configDialog, setConfigDialog] = useState<{ nodeId: string } | null>(null)
   const [loginInfo, setLoginInfo] = useState(false)
@@ -105,19 +106,36 @@ export default function App(): JSX.Element {
     (parentId: string, turnIndex: number, selection: string, question: string) => {
       const parent = getNode(parentId)
       if (!parent) return
-      const node = useStore.getState().addBranch(parentId, turnIndex, selection)
-      if (!node) return
-      if (parent.model) useStore.getState().setNodeModel(node.id, parent.model)
-      const prompt = buildBranchPrompt(selection, question)
-      useStore.getState().appendUserTurn(node.id, prompt)
-      void window.forkfield.startTurn({
-        nodeId: node.id,
-        prompt,
-        cwd: parent.workingDirectory,
-        resumeSessionId: parent.sessionId,
-        fork: true,
-        model: parent.model ?? undefined
-      })
+      // 1. Collapse the current CLI toward the canvas.
+      setBranchAnim('collapse')
+      window.setTimeout(() => {
+        // 2. Create the branch and start it; close the overlay so the new node
+        //    is briefly visible being created on the canvas.
+        const node = useStore.getState().addBranch(parentId, turnIndex, selection)
+        if (!node) {
+          setBranchAnim(null)
+          return
+        }
+        if (parent.model) useStore.getState().setNodeModel(node.id, parent.model)
+        const prompt = buildBranchPrompt(selection, question)
+        useStore.getState().appendUserTurn(node.id, prompt)
+        void window.forkfield.startTurn({
+          nodeId: node.id,
+          prompt,
+          cwd: parent.workingDirectory,
+          resumeSessionId: parent.sessionId,
+          fork: true,
+          model: parent.model ?? undefined
+        })
+        useStore.getState().openNode(null)
+        setBranchAnim(null)
+        // 3. Enter the new node with an expand-in.
+        window.setTimeout(() => {
+          useStore.getState().openNode(node.id)
+          setBranchAnim('enter')
+          window.setTimeout(() => setBranchAnim(null), 260)
+        }, 260)
+      }, 200)
     },
     []
   )
@@ -246,7 +264,9 @@ export default function App(): JSX.Element {
       {canvas.nodes.length === 0 && <EmptyCanvasHint />}
       {openNode && (
         <CliView
+          key={openNode.id}
           node={openNode}
+          anim={branchAnim}
           permission={permissions[openNode.id]}
           onClose={() => useStore.getState().openNode(null)}
           onSend={sendMessage}

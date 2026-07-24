@@ -309,6 +309,37 @@ body,
   overflow: hidden;
   box-shadow: 0 32px 90px rgba(15, 23, 42, 0.45), 0 10px 28px rgba(15, 23, 42, 0.25);
 }
+
+/* Branch transition: collapse the current CLI toward the new node, then
+   expand the new node's CLI in. Uses transform + opacity only (GPU-light). */
+@keyframes cliCollapse {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.18) translate(65%, 25%);
+  }
+}
+@keyframes cliEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.18) translate(65%, 25%);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.cli-panel.anim-collapse {
+  transform-origin: 100% 62%;
+  animation: cliCollapse 0.2s ease-in forwards;
+}
+.cli-panel.anim-enter {
+  transform-origin: 100% 62%;
+  animation: cliEnter 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 .cli-header {
   flex: 0 0 auto;
   display: flex;
