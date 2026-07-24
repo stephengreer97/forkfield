@@ -814,6 +814,77 @@ body,
   border-color: var(--accent);
 }
 
+/* Top bar search */
+.topbar-search {
+  width: 200px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 13px;
+}
+.topbar-search:focus {
+  outline: none;
+  border-color: var(--accent);
+  width: 240px;
+}
+
+/* Search dimming and collapsed subtree */
+.node-card.dim {
+  opacity: 0.32;
+  filter: grayscale(0.4);
+}
+.node-card.collapsed {
+  border-style: dashed;
+}
+.node-collapsed-badge {
+  margin-top: 6px;
+  align-self: flex-start;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+/* Fan-out button in the branch popover */
+.btn.fanout {
+  margin-top: 6px;
+  width: 100%;
+}
+
+/* Collect findings dialog body */
+.collect-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  margin-bottom: 14px;
+}
+.collect-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.collect-item:last-child {
+  border-bottom: none;
+}
+.collect-item-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.collect-item-text {
+  white-space: pre-wrap;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
 /* Branch diff viewer */
 .diff-dialog {
   width: 860px;

@@ -12,14 +12,27 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useStore } from '../store'
+import { descendantIds } from '../util'
+import type { CanvasNode } from '../../../shared/types'
 import NodeCard, { type BranchNodeData } from './NodeCard'
 
 const nodeTypes = { branch: NodeCard }
+
+function matchesSearch(n: CanvasNode, q: string): boolean {
+  if (n.title.toLowerCase().includes(q)) return true
+  for (const t of n.turns) {
+    for (const b of t.blocks) {
+      if (b.text && b.text.toLowerCase().includes(q)) return true
+    }
+  }
+  return false
+}
 
 export default function Canvas(props: {
   onOpen: (id: string) => void
   onMenu: (id: string, x: number, y: number) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
+  search: string
 }): JSX.Element | null {
   const canvas = useStore((s) => s.canvas)
   const permissions = useStore((s) => s.permissions)
@@ -52,21 +65,38 @@ export default function Canvas(props: {
 
   if (!canvas) return null
 
-  const nodes: Node[] = canvas.nodes.map((n) => ({
-    id: n.id,
-    type: 'branch',
-    position: n.position,
-    data: {
-      node: n,
-      permission: permissions[n.id],
-      onOpen: props.onOpen,
-      onMenu: props.onMenu,
-      onRespondPermission: props.onRespondPermission
-    } satisfies BranchNodeData as unknown as Record<string, unknown>
-  }))
+  // Hide every descendant of a collapsed node.
+  const hidden = new Set<string>()
+  const hiddenCount = new Map<string, number>()
+  for (const n of canvas.nodes) {
+    if (n.collapsed) {
+      const desc = descendantIds(canvas.nodes, n.id)
+      hiddenCount.set(n.id, desc.length)
+      for (const id of desc) hidden.add(id)
+    }
+  }
+
+  const q = props.search.trim().toLowerCase()
+
+  const nodes: Node[] = canvas.nodes
+    .filter((n) => !hidden.has(n.id))
+    .map((n) => ({
+      id: n.id,
+      type: 'branch',
+      position: n.position,
+      data: {
+        node: n,
+        permission: permissions[n.id],
+        dim: q ? !matchesSearch(n, q) : false,
+        hiddenCount: hiddenCount.get(n.id) ?? 0,
+        onOpen: props.onOpen,
+        onMenu: props.onMenu,
+        onRespondPermission: props.onRespondPermission
+      } satisfies BranchNodeData as unknown as Record<string, unknown>
+    }))
 
   const edges: Edge[] = canvas.nodes
-    .filter((n) => n.parentId)
+    .filter((n) => n.parentId && !hidden.has(n.id) && !hidden.has(n.parentId as string))
     .map((n) => ({
       id: `${n.parentId}-${n.id}`,
       source: n.parentId as string,

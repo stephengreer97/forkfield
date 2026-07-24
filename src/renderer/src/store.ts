@@ -40,6 +40,8 @@ interface Store {
   setNodeTurns(nodeId: string, turns: Turn[]): void
   setNodeModel(nodeId: string, model: string | null): void
   setNodeWorktree(nodeId: string, wt: Worktree): void
+  setNodeTitle(nodeId: string, title: string, auto?: boolean): void
+  toggleCollapse(nodeId: string): void
   clearNodeSession(nodeId: string): void
   moveNode(nodeId: string, x: number, y: number): void
   deleteNode(nodeId: string): string[]
@@ -276,6 +278,33 @@ export const useStore = create<Store>((set, get) => ({
             canvas: replaceNode(s.canvas, nodeId, (n) => {
               n.worktree = wt
               n.workingDirectory = wt.path
+              return n
+            })
+          }
+        : s
+    )
+  },
+
+  setNodeTitle(nodeId, title, auto = false) {
+    set((s) =>
+      s.canvas
+        ? {
+            canvas: replaceNode(s.canvas, nodeId, (n) => {
+              n.title = title
+              n.autoTitled = auto
+              return n
+            })
+          }
+        : s
+    )
+  },
+
+  toggleCollapse(nodeId) {
+    set((s) =>
+      s.canvas
+        ? {
+            canvas: replaceNode(s.canvas, nodeId, (n) => {
+              n.collapsed = !n.collapsed
               return n
             })
           }

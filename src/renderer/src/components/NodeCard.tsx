@@ -7,6 +7,8 @@ import { formatCost, formatTokens, nodePreview } from '../util'
 export interface BranchNodeData {
   node: CanvasNode
   permission?: PendingPermission
+  dim?: boolean
+  hiddenCount?: number
   onOpen: (id: string) => void
   onMenu: (id: string, x: number, y: number) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
@@ -27,7 +29,9 @@ export default function NodeCard({ data }: NodeProps): JSX.Element {
 
   return (
     <div
-      className={`node-card status-${n.status}`}
+      className={`node-card status-${n.status}${d.dim ? ' dim' : ''}${
+        n.collapsed ? ' collapsed' : ''
+      }`}
       onClick={() => d.onOpen(n.id)}
       onContextMenu={(e) => {
         e.preventDefault()
@@ -42,6 +46,11 @@ export default function NodeCard({ data }: NodeProps): JSX.Element {
         </span>
         <span className={`node-status status-${n.status}`}>{STATUS_LABEL[n.status]}</span>
       </div>
+      {n.collapsed && (d.hiddenCount ?? 0) > 0 && (
+        <div className="node-collapsed-badge" title="Collapsed subtree">
+          +{d.hiddenCount} hidden
+        </div>
+      )}
       <div className="node-preview">
         {n.status === 'thinking' ? (
           <div className="thinking-indicator small">

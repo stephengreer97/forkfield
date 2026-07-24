@@ -52,6 +52,8 @@ export interface CanvasNode {
   slashCommands?: string[]
   permissionMode?: PermissionMode | null
   worktree?: Worktree | null
+  collapsed?: boolean
+  autoTitled?: boolean
 }
 
 export interface Worktree {

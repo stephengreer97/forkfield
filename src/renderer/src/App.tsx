@@ -3,7 +3,14 @@ import type { JSX, ReactNode } from 'react'
 import { useStore } from './store'
 import Canvas from './components/Canvas'
 import CliView from './components/CliView'
-import { buildBranchPrompt, descendantIds, formatCost, formatTokens } from './util'
+import {
+  autoTitle,
+  buildBranchPrompt,
+  descendantIds,
+  formatCost,
+  formatTokens,
+  lastAssistantText
+} from './util'
 import type {
   CanvasNode,
   CanvasSettings,
@@ -79,6 +86,8 @@ export default function App(): JSX.Element {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [diffView, setDiffView] = useState<{ title: string; text: string } | null>(null)
+  const [collect, setCollect] = useState<{ nodeId: string } | null>(null)
+  const [search, setSearch] = useState('')
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(() =>
     localStorage.getItem('forkfield:file')
   )
@@ -110,10 +119,22 @@ export default function App(): JSX.Element {
       const st = useStore.getState()
       const c = st.canvas
       if (!c) return
-      if (c.settings.notifyOnComplete && st.openNodeId !== e.nodeId && 'Notification' in window) {
+      const openHere = st.openNodeId === e.nodeId && document.hasFocus()
+      if (
+        c.settings.notifyOnComplete &&
+        !openHere &&
+        'Notification' in window &&
+        Notification.permission === 'granted'
+      ) {
         const node = c.nodes.find((n) => n.id === e.nodeId)
-        if (Notification.permission === 'granted') {
-          new Notification('Forkfield', { body: `${node?.title ?? 'A branch'} finished` })
+        const cost = node ? formatCost(node.usage.costUsd) : ''
+        const n = new Notification('Forkfield', {
+          body: `${node?.title ?? 'A branch'} finished${cost ? ` · ${cost}` : ''}`,
+          tag: e.nodeId
+        })
+        n.onclick = () => {
+          window.focus()
+          useStore.getState().openNode(e.nodeId)
         }
       }
       const cap = c.settings.spendCapUsd
@@ -183,6 +204,10 @@ export default function App(): JSX.Element {
       )
       return
     }
+    // Name the node from its first real prompt.
+    if (node.turns.length === 0) {
+      useStore.getState().setNodeTitle(nodeId, autoTitle(text), true)
+    }
     useStore.getState().appendUserTurn(nodeId, text)
     void window.forkfield.startTurn({
       nodeId,
@@ -195,62 +220,82 @@ export default function App(): JSX.Element {
     })
   }, [])
 
+  // Create one branch node, name it, give it a worktree if isolation is on,
+  // and kick off its first turn. Shared by single-branch and fan-out flows.
+  const spawnBranch = useCallback(
+    async (
+      parentId: string,
+      turnIndex: number,
+      selection: string,
+      question: string,
+      promptOverride?: string
+    ): Promise<CanvasNode | null> => {
+      const parent = getNode(parentId)
+      if (!parent) return null
+      const settings = useStore.getState().canvas!.settings
+      const node = useStore.getState().addBranch(parentId, turnIndex, selection)
+      if (!node) return null
+      useStore.getState().setNodeTitle(node.id, autoTitle(question), true)
+      if (parent.model) useStore.getState().setNodeModel(node.id, parent.model)
+
+      // In worktree mode, give the branch its own isolated checkout so it
+      // can't collide with sibling branches. Falls back to the shared folder
+      // when the parent dir is not a git repo.
+      let cwd = parent.workingDirectory
+      if (settings.isolation === 'worktree') {
+        const wt = await window.forkfield.createWorktree(parent.workingDirectory, node.id)
+        if (wt) {
+          useStore.getState().setNodeWorktree(node.id, wt)
+          cwd = wt.path
+        } else {
+          setNotice(
+            'Branch isolation is on, but this folder is not a git repository, so this branch shares the parent folder.'
+          )
+        }
+      }
+
+      const prompt = promptOverride ?? buildBranchPrompt(selection, question)
+      useStore.getState().appendUserTurn(node.id, prompt)
+      void window.forkfield.startTurn({
+        nodeId: node.id,
+        prompt,
+        cwd,
+        resumeSessionId: parent.sessionId,
+        fork: true,
+        model:
+          parent.model ??
+          (settings.autoRouter ? routeModel(question) : settings.defaultModel ?? undefined),
+        bypass: effectiveBypass(parent, settings)
+      })
+      return node
+    },
+    []
+  )
+
+  const overCap = useCallback((extra: number): boolean => {
+    const settings = useStore.getState().canvas!.settings
+    if (concurrentThinking() + extra > settings.maxConcurrent) {
+      setNotice(
+        `That would exceed your limit of ${settings.maxConcurrent} concurrent branches. Wait for some to finish, or raise the limit in Settings.`
+      )
+      return true
+    }
+    return false
+  }, [])
+
   const createBranch = useCallback(
     (parentId: string, turnIndex: number, selection: string, question: string) => {
-      const parent = getNode(parentId)
-      if (!parent) return
-      const settings = useStore.getState().canvas!.settings
-      if (concurrentThinking() >= settings.maxConcurrent) {
-        setNotice(
-          `You have ${settings.maxConcurrent} branches running (the concurrency limit). Wait for one to finish, or raise the limit in Settings.`
-        )
-        return
-      }
-      const startBranch = async (): Promise<CanvasNode | null> => {
-        const node = useStore.getState().addBranch(parentId, turnIndex, selection)
-        if (!node) return null
-        if (parent.model) useStore.getState().setNodeModel(node.id, parent.model)
-
-        // In worktree mode, give the branch its own isolated checkout so it
-        // can't collide with sibling branches. Falls back to the shared folder
-        // when the parent dir is not a git repo.
-        let cwd = parent.workingDirectory
-        if (settings.isolation === 'worktree') {
-          const wt = await window.forkfield.createWorktree(parent.workingDirectory, node.id)
-          if (wt) {
-            useStore.getState().setNodeWorktree(node.id, wt)
-            cwd = wt.path
-          } else {
-            setNotice(
-              'Branch isolation is on, but this folder is not a git repository, so this branch shares the parent folder.'
-            )
-          }
-        }
-
-        const prompt = buildBranchPrompt(selection, question)
-        useStore.getState().appendUserTurn(node.id, prompt)
-        void window.forkfield.startTurn({
-          nodeId: node.id,
-          prompt,
-          cwd,
-          resumeSessionId: parent.sessionId,
-          fork: true,
-          model:
-            parent.model ??
-            (settings.autoRouter ? routeModel(question) : settings.defaultModel ?? undefined),
-          bypass: effectiveBypass(parent, settings)
-        })
-        return node
-      }
-      if (!settings.switchOnBranch) {
+      if (overCap(1)) return
+      const switchOnBranch = useStore.getState().canvas!.settings.switchOnBranch
+      if (!switchOnBranch) {
         // Create it and keep working where you are.
-        void startBranch()
+        void spawnBranch(parentId, turnIndex, selection, question)
         return
       }
       // Animated: collapse current, reveal the new node, enter it.
       setBranchAnim('collapse')
       window.setTimeout(() => {
-        void startBranch().then((node) => {
+        void spawnBranch(parentId, turnIndex, selection, question).then((node) => {
           if (!node) {
             setBranchAnim(null)
             return
@@ -265,7 +310,18 @@ export default function App(): JSX.Element {
         })
       }, 200)
     },
-    []
+    [overCap, spawnBranch]
+  )
+
+  const createFanOut = useCallback(
+    (parentId: string, turnIndex: number, selection: string, questions: string[]) => {
+      const qs = questions.map((q) => q.trim()).filter(Boolean)
+      if (qs.length === 0) return
+      if (overCap(qs.length)) return
+      // Fan-out always runs in the background: you can't enter N nodes at once.
+      for (const q of qs) void spawnBranch(parentId, turnIndex, selection, q)
+    },
+    [overCap, spawnBranch]
   )
 
   const onMenu = useCallback((nodeId: string, x: number, y: number) => {
@@ -322,6 +378,36 @@ export default function App(): JSX.Element {
       setDiffView({ title: node.title, text: text.trim() || 'No changes yet.' })
     })
   }, [])
+
+  const openCollect = useCallback((nodeId: string) => {
+    setCollect({ nodeId })
+  }, [])
+
+  const mergeFindings = useCallback(
+    (parentId: string) => {
+      const c = useStore.getState().canvas
+      if (!c) return
+      const parent = c.nodes.find((n) => n.id === parentId)
+      if (!parent) return
+      const children = c.nodes.filter((n) => n.parentId === parentId)
+      const sections = children
+        .map((ch, i) => `## Branch ${i + 1}: ${ch.title}\n\n${lastAssistantText(ch)}`)
+        .join('\n\n')
+      const prompt =
+        'I explored several branches from this point, each answering the same question a ' +
+        'different way. Here is the final result from each branch:\n\n' +
+        sections +
+        '\n\nSynthesize these into a single answer: note where they agree, call out where ' +
+        'they disagree and which is stronger, and give a clear recommendation.'
+      setCollect(null)
+      if (overCap(1)) return
+      const turnIndex = Math.max(0, parent.turns.length - 1)
+      void spawnBranch(parentId, turnIndex, '', 'Merged findings', prompt).then((node) => {
+        if (node) useStore.getState().openNode(node.id)
+      })
+    },
+    [overCap, spawnBranch]
+  )
 
 
   useEffect(() => {
@@ -404,6 +490,8 @@ export default function App(): JSX.Element {
       <TopBar
         totalTokens={total.tokens}
         totalCost={total.cost}
+        search={search}
+        onSearch={setSearch}
         onNewRoot={() => setNewRootChoice(true)}
         onOpenSettings={() => setSettingsOpen(true)}
       />
@@ -411,6 +499,7 @@ export default function App(): JSX.Element {
         onOpen={(id) => useStore.getState().openNode(id)}
         onMenu={onMenu}
         onRespondPermission={respondPermission}
+        search={search}
       />
       {canvas.nodes.length === 0 && <EmptyCanvasHint />}
       {openNode && (
@@ -423,6 +512,7 @@ export default function App(): JSX.Element {
           onClose={() => useStore.getState().openNode(null)}
           onSend={sendMessage}
           onBranch={createBranch}
+          onFanOut={createFanOut}
           onInterrupt={interrupt}
           onRespondPermission={respondPermission}
           onShowDiff={showDiff}
@@ -433,6 +523,9 @@ export default function App(): JSX.Element {
           x={menu.x}
           y={menu.y}
           isRoot={!canvas.nodes.find((n) => n.id === menu.nodeId)?.parentId}
+          childCount={descendantIds(canvas.nodes, menu.nodeId).length}
+          directChildCount={canvas.nodes.filter((n) => n.parentId === menu.nodeId).length}
+          collapsed={!!canvas.nodes.find((n) => n.id === menu.nodeId)?.collapsed}
           onOpen={() => {
             useStore.getState().openNode(menu.nodeId)
             setMenu(null)
@@ -444,6 +537,15 @@ export default function App(): JSX.Element {
           onMakeRoot={() => {
             useStore.getState().makeRoot(menu.nodeId)
             setMenu(null)
+          }}
+          onToggleCollapse={() => {
+            useStore.getState().toggleCollapse(menu.nodeId)
+            setMenu(null)
+          }}
+          onCollectFindings={() => {
+            const id = menu.nodeId
+            setMenu(null)
+            openCollect(id)
           }}
           onDelete={() => {
             const id = menu.nodeId
@@ -578,6 +680,58 @@ export default function App(): JSX.Element {
         />
       )}
       {diffView && <DiffDialog view={diffView} onClose={() => setDiffView(null)} />}
+      {collect && (
+        <CollectDialog
+          parent={canvas.nodes.find((n) => n.id === collect.nodeId) ?? null}
+          branches={canvas.nodes.filter((n) => n.parentId === collect.nodeId)}
+          onMerge={() => mergeFindings(collect.nodeId)}
+          onClose={() => setCollect(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function CollectDialog(props: {
+  parent: CanvasNode | null
+  branches: CanvasNode[]
+  onMerge: () => void
+  onClose: () => void
+}): JSX.Element {
+  return (
+    <div
+      className="confirm-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) props.onClose()
+      }}
+    >
+      <div className="diff-dialog">
+        <div className="diff-header">
+          <h3>Findings · {props.parent?.title ?? 'node'}</h3>
+          <button className="btn tiny ghost" onClick={props.onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="collect-body">
+          {props.branches.map((ch, i) => (
+            <div key={ch.id} className="collect-item">
+              <div className="collect-item-title">
+                Branch {i + 1}: {ch.title}
+                <span className={`cli-status status-${ch.status}`}>{ch.status}</span>
+              </div>
+              <div className="collect-item-text">{lastAssistantText(ch)}</div>
+            </div>
+          ))}
+        </div>
+        <div className="confirm-actions">
+          <button className="btn" onClick={props.onClose}>
+            Close
+          </button>
+          <button className="btn primary" onClick={props.onMerge}>
+            Merge into new branch
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -745,9 +899,14 @@ function NodeMenu(props: {
   x: number
   y: number
   isRoot: boolean
+  childCount: number
+  directChildCount: number
+  collapsed: boolean
   onOpen: () => void
   onMarkUnread: () => void
   onMakeRoot: () => void
+  onToggleCollapse: () => void
+  onCollectFindings: () => void
   onDelete: () => void
   onClose: () => void
 }): JSX.Element {
@@ -770,6 +929,21 @@ function NodeMenu(props: {
         </button>
         <button className="menu-item" onClick={props.onMakeRoot} disabled={props.isRoot}>
           Make Root
+        </button>
+        <div className="menu-sep" />
+        <button
+          className="menu-item"
+          onClick={props.onToggleCollapse}
+          disabled={props.childCount === 0}
+        >
+          {props.collapsed ? 'Expand subtree' : 'Collapse subtree'}
+        </button>
+        <button
+          className="menu-item"
+          onClick={props.onCollectFindings}
+          disabled={props.directChildCount < 2}
+        >
+          Collect findings…
         </button>
         <div className="menu-sep" />
         <button className="menu-item danger" onClick={props.onDelete}>
@@ -817,6 +991,8 @@ function ConfirmDialog(props: {
 function TopBar(props: {
   totalTokens: number
   totalCost: number
+  search: string
+  onSearch: (q: string) => void
   onNewRoot: () => void
   onOpenSettings: () => void
 }): JSX.Element {
@@ -826,6 +1002,13 @@ function TopBar(props: {
         <span className="brand">Forkfield</span>
       </div>
       <div className="topbar-right">
+        <input
+          className="topbar-search"
+          type="search"
+          placeholder="Search nodes…"
+          value={props.search}
+          onChange={(e) => props.onSearch(e.target.value)}
+        />
         <span className="usage-pill" title="Total tokens and cost across all nodes">
           {formatTokens(props.totalTokens)} tok · {formatCost(props.totalCost)}
         </span>

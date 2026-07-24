@@ -20,6 +20,7 @@ export default function CliView(props: {
   onClose: () => void
   onSend: (nodeId: string, text: string) => void
   onBranch: (parentId: string, turnIndex: number, selection: string, question: string) => void
+  onFanOut?: (parentId: string, turnIndex: number, selection: string, questions: string[]) => void
   onInterrupt: (nodeId: string) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
   onShowDiff?: (nodeId: string) => void
@@ -194,6 +195,24 @@ export default function CliView(props: {
     setQuestion('')
     window.getSelection()?.removeAllRanges()
   }
+
+  function submitFanOut(): void {
+    if (!popover || !props.onFanOut) return
+    const parts = question
+      .split(/[|\n]/)
+      .map((p) => p.trim())
+      .filter(Boolean)
+    if (parts.length < 2) {
+      submitBranch()
+      return
+    }
+    props.onFanOut(node.id, popover.turnIndex, popover.text, parts)
+    setPopover(null)
+    setQuestion('')
+    window.getSelection()?.removeAllRanges()
+  }
+
+  const fanCount = question.split(/[|\n]/).filter((p) => p.trim()).length
 
   function send(): void {
     const text = input.trim()
@@ -421,7 +440,7 @@ export default function CliView(props: {
             <input
               ref={questionRef}
               value={question}
-              placeholder="Ask about this…"
+              placeholder="Ask about this…  (use | to fan out)"
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') submitBranch()
@@ -432,6 +451,11 @@ export default function CliView(props: {
               Branch
             </button>
           </div>
+          {props.onFanOut && fanCount > 1 && (
+            <button className="btn tiny fanout" onClick={submitFanOut}>
+              Fan out into {fanCount} branches
+            </button>
+          )}
         </div>
       )}
       {ctxMenu && (

@@ -43,6 +43,40 @@ export function formatCost(usd: number): string {
   return '$' + usd.toFixed(2)
 }
 
+// Condense a prompt into a short node title: first non-empty line, stripped of
+// markdown noise and branch-quote scaffolding, truncated to a few words.
+export function autoTitle(text: string): string {
+  const firstLine =
+    text
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith('>') && !/^regarding this part/i.test(l)) ?? text.trim()
+  const clean = firstLine
+    .replace(/^[#>*\-\s]+/, '')
+    .replace(/[`*_]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!clean) return 'Untitled'
+  if (clean.length <= 42) return clean
+  return clean.slice(0, 42).replace(/\s+\S*$/, '') + '…'
+}
+
+// Full text of the node's most recent assistant turn (untruncated), for
+// collecting findings across branches.
+export function lastAssistantText(node: CanvasNode): string {
+  for (let i = node.turns.length - 1; i >= 0; i--) {
+    const turn = node.turns[i]
+    if (turn.role !== 'assistant') continue
+    const text = turn.blocks
+      .filter((b) => b.kind === 'text' && b.text)
+      .map((b) => b.text)
+      .join('\n')
+      .trim()
+    if (text) return text
+  }
+  return '(no response yet)'
+}
+
 export function nodePreview(node: CanvasNode): string {
   for (let i = node.turns.length - 1; i >= 0; i--) {
     const turn = node.turns[i]
