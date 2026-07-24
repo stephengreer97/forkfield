@@ -55,10 +55,10 @@ The app reuses your existing Claude Code authentication (the same credentials `c
 Forkfield has a minimal **File** menu (the stock Edit/View/Window menus are removed):
 
 - **New** starts an empty canvas.
-- **Open** loads a `.forkfield` file.
-- **Save** / **Save As** write the current canvas to a `.forkfield` file.
+- **Open** loads a `.fork` file.
+- **Save** / **Save As** write the current canvas to a `.fork` file.
 
-A `.forkfield` file is the whole canvas as JSON: node ids, parent connections, positions, the folder each node runs in, the Claude session ids, and the transcripts. Reopening it restores the tree and each node resumes its Claude session by id, so you can pick a branch back up later. Standard shortcuts work (Ctrl+N/O/S, Ctrl+Shift+S). Forkfield also keeps an automatic recovery copy so a crash does not lose the current canvas. DevTools is on F12.
+A `.fork` file is the whole canvas as JSON: node ids, parent connections, positions, the folder each node runs in, the Claude session ids, and the transcripts. Reopening it restores the tree and each node resumes its Claude session by id, so you can pick a branch back up later. Standard shortcuts work (Ctrl+N/O/S, Ctrl+Shift+S). Forkfield also keeps an automatic recovery copy so a crash does not lose the current canvas. DevTools is on F12.
 
 ## Package for Windows
 

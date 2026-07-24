@@ -119,8 +119,8 @@ ipcMain.handle('file:save', async (_e, payload: { canvas: CanvasState; path: str
   if (!target) {
     const res = await dialog.showSaveDialog({
       title: 'Save Forkfield session',
-      defaultPath: 'session.forkfield',
-      filters: [{ name: 'Forkfield Session', extensions: ['forkfield'] }]
+      defaultPath: 'session.fork',
+      filters: [{ name: 'Forkfield Session', extensions: ['fork'] }]
     })
     if (res.canceled || !res.filePath) return null
     target = res.filePath
@@ -138,7 +138,7 @@ ipcMain.handle('file:open', async () => {
   const res = await dialog.showOpenDialog({
     title: 'Open Forkfield session',
     properties: ['openFile'],
-    filters: [{ name: 'Forkfield Session', extensions: ['forkfield'] }]
+    filters: [{ name: 'Forkfield Session', extensions: ['fork'] }]
   })
   if (res.canceled || res.filePaths.length === 0) return null
   const p = res.filePaths[0]
