@@ -1,5 +1,25 @@
 import { randomUUID } from 'crypto'
+import { app } from 'electron'
+import { join } from 'path'
+import { existsSync } from 'fs'
 import type { SessionEvent, Usage, StartTurnParams } from '../shared/types'
+
+// In a packaged app the SDK's own binary resolution points inside app.asar,
+// which can't be executed. Point it at the unpacked claude binary instead.
+function getClaudeExecutable(): string | undefined {
+  if (!app.isPackaged) return undefined
+  const pkg = `claude-agent-sdk-${process.platform}-${process.arch}`
+  const bin = process.platform === 'win32' ? 'claude.exe' : 'claude'
+  const p = join(
+    process.resourcesPath,
+    'app.asar.unpacked',
+    'node_modules',
+    '@anthropic-ai',
+    pkg,
+    bin
+  )
+  return existsSync(p) ? p : undefined
+}
 
 // The Claude Agent SDK is ESM. Load it via a runtime dynamic import that the
 // CJS bundler will not rewrite, so it resolves from node_modules at runtime.
@@ -96,6 +116,8 @@ export class SessionManager {
       if (resume) options.resume = resume
       if (fork) options.forkSession = true
       if (model) options.model = model
+      const claudePath = getClaudeExecutable()
+      if (claudePath) options.pathToClaudeCodeExecutable = claudePath
       if (!this.bypass) {
         options.canUseTool = (toolName: string, input: unknown) =>
           this.askPermission(rt, toolName, input)
