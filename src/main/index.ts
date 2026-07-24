@@ -5,7 +5,8 @@ import { readFileSync, writeFileSync } from 'fs'
 import { SessionManager } from './sessions'
 import { loadCanvas, saveCanvas } from './persistence'
 import { loadSessionHistory } from './history'
-import type { SessionEvent, StartTurnParams, CanvasState } from '../shared/types'
+import { isGitRepo, createWorktree, removeWorktree, gitDiff } from './git'
+import type { SessionEvent, StartTurnParams, CanvasState, Worktree } from '../shared/types'
 
 let win: BrowserWindow | null = null
 
@@ -151,6 +152,18 @@ ipcMain.handle('file:open', async () => {
     return null
   }
 })
+
+ipcMain.handle('git:isRepo', async (_e, dir: string) => isGitRepo(dir))
+
+ipcMain.handle('worktree:create', async (_e, p: { baseDir: string; nodeId: string }) =>
+  createWorktree(p.baseDir, p.nodeId)
+)
+
+ipcMain.handle('worktree:remove', async (_e, wt: Worktree) => {
+  await removeWorktree(wt)
+})
+
+ipcMain.handle('git:diff', async (_e, wt: Worktree) => gitDiff(wt))
 
 ipcMain.on('session:interrupt', (_e, nodeId: string) => {
   sessions.interrupt(nodeId)

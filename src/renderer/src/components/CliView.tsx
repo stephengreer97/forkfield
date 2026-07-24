@@ -22,6 +22,7 @@ export default function CliView(props: {
   onBranch: (parentId: string, turnIndex: number, selection: string, question: string) => void
   onInterrupt: (nodeId: string) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
+  onShowDiff?: (nodeId: string) => void
 }): JSX.Element {
   const { node } = props
   const [input, setInput] = useState('')
@@ -229,6 +230,15 @@ export default function CliView(props: {
               {formatTokens(tokens)} tok · {formatCost(node.usage.costUsd)}
             </span>
             <span className={`cli-status status-${node.status}`}>{node.status}</span>
+            {node.worktree && props.onShowDiff && (
+              <button
+                className="btn tiny"
+                title="Show this branch's file changes"
+                onClick={() => props.onShowDiff!(node.id)}
+              >
+                Diff
+              </button>
+            )}
             <button className="btn tiny ghost" onClick={props.onClose}>
               ✕
             </button>

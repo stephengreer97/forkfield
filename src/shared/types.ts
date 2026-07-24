@@ -51,6 +51,14 @@ export interface CanvasNode {
   model?: string | null
   slashCommands?: string[]
   permissionMode?: PermissionMode | null
+  worktree?: Worktree | null
+}
+
+export interface Worktree {
+  path: string
+  branch: string
+  baseRef: string
+  repoRoot: string
 }
 
 export type PermissionMode = 'ask' | 'skip'
@@ -129,4 +137,8 @@ export interface ForkfieldApi {
   openFile(): Promise<{ path: string; canvas: CanvasState } | null>
   onMenu(cb: (action: string) => void): () => void
   onSessionEvent(cb: (event: SessionEvent) => void): () => void
+  isGitRepo(dir: string): Promise<boolean>
+  createWorktree(baseDir: string, nodeId: string): Promise<Worktree | null>
+  removeWorktree(wt: Worktree): Promise<void>
+  gitDiff(wt: Worktree): Promise<string>
 }

@@ -1,6 +1,6 @@
 import { homedir } from 'os'
 import { join } from 'path'
-import { existsSync, readdirSync, readFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync, mkdirSync, copyFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 import type { ContentBlock, Turn } from '../shared/types'
 
@@ -22,6 +22,31 @@ function findSessionFile(sessionId: string): string | null {
     if (existsSync(f)) return f
   }
   return null
+}
+
+// Claude Code keys session transcripts by the cwd they ran in: the project dir
+// is the absolute path with every non-alphanumeric character turned into a dash.
+function encodeCwd(cwd: string): string {
+  return cwd.replace(/[^a-zA-Z0-9]/g, '-')
+}
+
+// When a branch runs in a git worktree, its cwd differs from the parent's, so a
+// `--resume <parentSession>` would look in the wrong project dir and lose the
+// inherited context. Copy the transcript into the cwd's project dir so resume
+// resolves it there. No-op when the file is already present (shared mode, or
+// after the first branch turn).
+export function ensureSessionInCwd(cwd: string, sessionId: string): void {
+  const dir = join(homedir(), '.claude', 'projects', encodeCwd(cwd))
+  const dest = join(dir, `${sessionId}.jsonl`)
+  if (existsSync(dest)) return
+  const src = findSessionFile(sessionId)
+  if (!src || src === dest) return
+  try {
+    mkdirSync(dir, { recursive: true })
+    copyFileSync(src, dest)
+  } catch (err) {
+    console.error('ensureSessionInCwd failed:', err)
+  }
 }
 
 function textOf(content: unknown): ContentBlock[] {

@@ -6,7 +6,8 @@ import type {
   PermissionMode,
   SessionEvent,
   Turn,
-  Usage
+  Usage,
+  Worktree
 } from '../../shared/types'
 import { defaultSettings, emptyUsage } from '../../shared/types'
 import { childCount, descendantIds } from './util'
@@ -38,6 +39,7 @@ interface Store {
   appendUserTurn(nodeId: string, text: string): void
   setNodeTurns(nodeId: string, turns: Turn[]): void
   setNodeModel(nodeId: string, model: string | null): void
+  setNodeWorktree(nodeId: string, wt: Worktree): void
   clearNodeSession(nodeId: string): void
   moveNode(nodeId: string, x: number, y: number): void
   deleteNode(nodeId: string): string[]
@@ -260,6 +262,20 @@ export const useStore = create<Store>((set, get) => ({
         ? {
             canvas: replaceNode(s.canvas, nodeId, (n) => {
               n.model = model
+              return n
+            })
+          }
+        : s
+    )
+  },
+
+  setNodeWorktree(nodeId, wt) {
+    set((s) =>
+      s.canvas
+        ? {
+            canvas: replaceNode(s.canvas, nodeId, (n) => {
+              n.worktree = wt
+              n.workingDirectory = wt.path
               return n
             })
           }

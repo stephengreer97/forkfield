@@ -814,6 +814,43 @@ body,
   border-color: var(--accent);
 }
 
+/* Branch diff viewer */
+.diff-dialog {
+  width: 860px;
+  max-width: 94vw;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 16px 18px 18px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.4);
+}
+.diff-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.diff-header h3 {
+  margin: 0;
+}
+.diff-body {
+  flex: 1 1 auto;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  color: var(--text);
+}
+
 /* Markdown rendering of Claude output */
 .md {
   line-height: 1.55;

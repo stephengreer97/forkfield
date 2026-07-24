@@ -78,6 +78,7 @@ export default function App(): JSX.Element {
   const [loginInfo, setLoginInfo] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [diffView, setDiffView] = useState<{ title: string; text: string } | null>(null)
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(() =>
     localStorage.getItem('forkfield:file')
   )
@@ -205,16 +206,33 @@ export default function App(): JSX.Element {
         )
         return
       }
-      const startBranch = (): CanvasNode | null => {
+      const startBranch = async (): Promise<CanvasNode | null> => {
         const node = useStore.getState().addBranch(parentId, turnIndex, selection)
         if (!node) return null
         if (parent.model) useStore.getState().setNodeModel(node.id, parent.model)
+
+        // In worktree mode, give the branch its own isolated checkout so it
+        // can't collide with sibling branches. Falls back to the shared folder
+        // when the parent dir is not a git repo.
+        let cwd = parent.workingDirectory
+        if (settings.isolation === 'worktree') {
+          const wt = await window.forkfield.createWorktree(parent.workingDirectory, node.id)
+          if (wt) {
+            useStore.getState().setNodeWorktree(node.id, wt)
+            cwd = wt.path
+          } else {
+            setNotice(
+              'Branch isolation is on, but this folder is not a git repository, so this branch shares the parent folder.'
+            )
+          }
+        }
+
         const prompt = buildBranchPrompt(selection, question)
         useStore.getState().appendUserTurn(node.id, prompt)
         void window.forkfield.startTurn({
           nodeId: node.id,
           prompt,
-          cwd: parent.workingDirectory,
+          cwd,
           resumeSessionId: parent.sessionId,
           fork: true,
           model:
@@ -226,24 +244,25 @@ export default function App(): JSX.Element {
       }
       if (!settings.switchOnBranch) {
         // Create it and keep working where you are.
-        startBranch()
+        void startBranch()
         return
       }
       // Animated: collapse current, reveal the new node, enter it.
       setBranchAnim('collapse')
       window.setTimeout(() => {
-        const node = startBranch()
-        if (!node) {
+        void startBranch().then((node) => {
+          if (!node) {
+            setBranchAnim(null)
+            return
+          }
+          useStore.getState().openNode(null)
           setBranchAnim(null)
-          return
-        }
-        useStore.getState().openNode(null)
-        setBranchAnim(null)
-        window.setTimeout(() => {
-          useStore.getState().openNode(node.id)
-          setBranchAnim('enter')
-          window.setTimeout(() => setBranchAnim(null), 260)
-        }, 260)
+          window.setTimeout(() => {
+            useStore.getState().openNode(node.id)
+            setBranchAnim('enter')
+            window.setTimeout(() => setBranchAnim(null), 260)
+          }, 260)
+        })
       }, 200)
     },
     []
@@ -253,23 +272,38 @@ export default function App(): JSX.Element {
     setMenu({ nodeId, x, y })
   }, [])
 
-  const requestDelete = useCallback((nodeId: string) => {
-    const c = useStore.getState().canvas
-    if (!c) return
-    if (!c.settings.confirmDelete) {
-      const removed = useStore.getState().deleteNode(nodeId)
-      for (const id of removed) window.forkfield.interrupt(id)
-      return
+  const doDelete = useCallback((nodeId: string) => {
+    // Capture worktrees before the nodes leave the store, then tear them down.
+    const before = useStore.getState().canvas?.nodes ?? []
+    const removed = useStore.getState().deleteNode(nodeId)
+    const removedSet = new Set(removed)
+    for (const id of removed) window.forkfield.interrupt(id)
+    for (const n of before) {
+      if (removedSet.has(n.id) && n.worktree) void window.forkfield.removeWorktree(n.worktree)
     }
-    const count = descendantIds(c.nodes, nodeId).length
-    setConfirmDelete({ nodeId, count })
   }, [])
 
-  const performDelete = useCallback((nodeId: string) => {
-    const removed = useStore.getState().deleteNode(nodeId)
-    for (const id of removed) window.forkfield.interrupt(id)
-    setConfirmDelete(null)
-  }, [])
+  const requestDelete = useCallback(
+    (nodeId: string) => {
+      const c = useStore.getState().canvas
+      if (!c) return
+      if (!c.settings.confirmDelete) {
+        doDelete(nodeId)
+        return
+      }
+      const count = descendantIds(c.nodes, nodeId).length
+      setConfirmDelete({ nodeId, count })
+    },
+    [doDelete]
+  )
+
+  const performDelete = useCallback(
+    (nodeId: string) => {
+      doDelete(nodeId)
+      setConfirmDelete(null)
+    },
+    [doDelete]
+  )
 
   const respondPermission = useCallback((nodeId: string, requestId: string, allow: boolean) => {
     window.forkfield.respondPermission(requestId, allow)
@@ -278,6 +312,15 @@ export default function App(): JSX.Element {
 
   const interrupt = useCallback((nodeId: string) => {
     window.forkfield.interrupt(nodeId)
+  }, [])
+
+  const showDiff = useCallback((nodeId: string) => {
+    const node = useStore.getState().canvas?.nodes.find((n) => n.id === nodeId)
+    if (!node?.worktree) return
+    setDiffView({ title: node.title, text: 'Loading diff…' })
+    void window.forkfield.gitDiff(node.worktree).then((text) => {
+      setDiffView({ title: node.title, text: text.trim() || 'No changes yet.' })
+    })
   }, [])
 
 
@@ -382,6 +425,7 @@ export default function App(): JSX.Element {
           onBranch={createBranch}
           onInterrupt={interrupt}
           onRespondPermission={respondPermission}
+          onShowDiff={showDiff}
         />
       )}
       {menu && (
@@ -533,6 +577,31 @@ export default function App(): JSX.Element {
           onCancel={() => setNotice(null)}
         />
       )}
+      {diffView && <DiffDialog view={diffView} onClose={() => setDiffView(null)} />}
+    </div>
+  )
+}
+
+function DiffDialog(props: {
+  view: { title: string; text: string }
+  onClose: () => void
+}): JSX.Element {
+  return (
+    <div
+      className="confirm-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) props.onClose()
+      }}
+    >
+      <div className="diff-dialog">
+        <div className="diff-header">
+          <h3>Changes · {props.view.title}</h3>
+          <button className="btn tiny ghost" onClick={props.onClose}>
+            ✕
+          </button>
+        </div>
+        <pre className="diff-body">{props.view.text}</pre>
+      </div>
     </div>
   )
 }

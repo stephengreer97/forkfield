@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import { ensureSessionInCwd } from './history'
 import type { SessionEvent, Usage, StartTurnParams } from '../shared/types'
 
 // In a packaged app the SDK's own binary resolution points inside app.asar,
@@ -94,6 +95,10 @@ export class SessionManager {
     rt.abort = abort
     const turnId = randomUUID()
     this.send({ type: 'status', nodeId: rt.nodeId, status: 'thinking' })
+
+    // Make sure a resumed transcript is discoverable from this cwd. Matters for
+    // worktree branches, whose cwd differs from the session's original dir.
+    if (resume) ensureSessionInCwd(rt.cwd, resume)
 
     try {
       const query = await getQuery()

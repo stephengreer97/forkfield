@@ -3,7 +3,8 @@ import type {
   ForkfieldApi,
   CanvasState,
   SessionEvent,
-  StartTurnParams
+  StartTurnParams,
+  Worktree
 } from '../shared/types'
 
 const api: ForkfieldApi = {
@@ -27,7 +28,12 @@ const api: ForkfieldApi = {
     const listener = (_: unknown, event: SessionEvent): void => cb(event)
     ipcRenderer.on('session:event', listener)
     return () => ipcRenderer.removeListener('session:event', listener)
-  }
+  },
+  isGitRepo: (dir: string) => ipcRenderer.invoke('git:isRepo', dir),
+  createWorktree: (baseDir: string, nodeId: string) =>
+    ipcRenderer.invoke('worktree:create', { baseDir, nodeId }),
+  removeWorktree: (wt: Worktree) => ipcRenderer.invoke('worktree:remove', wt),
+  gitDiff: (wt: Worktree) => ipcRenderer.invoke('git:diff', wt)
 }
 
 contextBridge.exposeInMainWorld('forkfield', api)
