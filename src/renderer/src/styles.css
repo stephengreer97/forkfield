@@ -517,8 +517,10 @@ body,
 }
 .cli-input textarea {
   flex: 1 1 auto;
-  resize: none;
-  height: 56px;
+  resize: vertical;
+  min-height: 56px;
+  max-height: 220px;
+  overflow-y: auto;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border-strong);
@@ -718,6 +720,28 @@ body,
   color: var(--accent);
   text-decoration: underline;
   cursor: default;
+}
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.md-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 100%;
+}
+.md-table th,
+.md-table td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  vertical-align: top;
+}
+.md-table th {
+  background: var(--panel-2);
+  font-weight: 600;
+}
+.md-table tr:nth-child(even) td {
+  background: var(--panel-3);
 }
 
 /* Choice + prompt dialogs */

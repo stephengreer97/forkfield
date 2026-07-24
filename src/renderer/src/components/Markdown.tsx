@@ -59,6 +59,50 @@ function renderBlocks(text: string): JSX.Element[] {
       continue
     }
 
+    // Table: a header row followed by a separator row (|---|---|).
+    if (
+      /^\s*\|.*\|\s*$/.test(line) &&
+      i + 1 < lines.length &&
+      /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])
+    ) {
+      flushPara()
+      const header = splitRow(line)
+      const aligns = splitRow(lines[i + 1]).map(parseAlign)
+      i += 2
+      const rows: string[][] = []
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+        rows.push(splitRow(lines[i]))
+        i++
+      }
+      blocks.push(
+        <div key={key++} className="md-table-wrap">
+          <table className="md-table">
+            <thead>
+              <tr>
+                {header.map((h, ci) => (
+                  <th key={ci} style={{ textAlign: aligns[ci] ?? 'left' }}>
+                    {renderInline(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri}>
+                  {r.map((c, ci) => (
+                    <td key={ci} style={{ textAlign: aligns[ci] ?? 'left' }}>
+                      {renderInline(c)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+      continue
+    }
+
     if (/^\s*[-*]\s+/.test(line)) {
       flushPara()
       const items: string[] = []
@@ -143,4 +187,18 @@ function renderInline(text: string): (JSX.Element | string)[] {
   }
   if (last < text.length) out.push(text.slice(last))
   return out
+}
+
+function splitRow(line: string): string[] {
+  const t = line.trim().replace(/^\|/, '').replace(/\|$/, '')
+  return t.split('|').map((c) => c.trim())
+}
+
+function parseAlign(cell: string): 'left' | 'center' | 'right' {
+  const t = cell.trim()
+  const l = t.startsWith(':')
+  const r = t.endsWith(':')
+  if (l && r) return 'center'
+  if (r) return 'right'
+  return 'left'
 }

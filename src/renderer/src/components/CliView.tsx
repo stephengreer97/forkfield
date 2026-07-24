@@ -28,10 +28,14 @@ export default function CliView(props: {
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; text: string } | null>(null)
   const [acIndex, setAcIndex] = useState(0)
   const [acDismissed, setAcDismissed] = useState(false)
+  const [histIndex, setHistIndex] = useState<number | null>(null)
   const transcriptRef = useRef<HTMLDivElement | null>(null)
   const questionRef = useRef<HTMLInputElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const lastSelRef = useRef<string>('')
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const inputRef = useRef('')
+  const stashRef = useRef<{ text: string; time: number } | null>(null)
   const thinking = node.status === 'thinking' || node.status === 'awaiting_permission'
 
   // Slash command autocomplete, driven by the command list the SDK advertises.
@@ -43,10 +47,40 @@ export default function CliView(props: {
   const showAc = acMatches.length > 0 && !acDismissed
   const acActive = Math.min(acIndex, acMatches.length - 1)
 
+  // Previous messages for up/down recall (terminal-style history).
+  const history = node.turns
+    .filter((t) => t.role === 'user')
+    .map((t) => t.blocks.filter((b) => b.kind === 'text').map((b) => b.text ?? '').join(''))
+    .filter((s) => s.trim().length > 0)
+
   function acceptCompletion(cmd: string): void {
     setInput('/' + cmd + ' ')
     setAcDismissed(true)
   }
+
+  function insertNewlineAtCaret(): void {
+    const el = textareaRef.current
+    if (!el) {
+      setInput(input + '\n')
+      return
+    }
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    setInput(input.slice(0, start) + '\n' + input.slice(end))
+    requestAnimationFrame(() => {
+      el.selectionStart = el.selectionEnd = start + 1
+    })
+  }
+
+  // Mirror input into a ref for the window key handler, and auto-grow the box.
+  useEffect(() => {
+    inputRef.current = input
+    const el = textareaRef.current
+    if (el) {
+      el.style.height = 'auto'
+      el.style.height = Math.min(el.scrollHeight, 220) + 'px'
+    }
+  }, [input])
 
   // Auto scroll to bottom as the transcript grows.
   useEffect(() => {
@@ -68,6 +102,18 @@ export default function CliView(props: {
           props.onInterrupt(node.id)
           return
         }
+        // No selection, not thinking: clear the input and stash it; a quick
+        // second ctrl+c puts it back.
+        e.preventDefault()
+        const current = inputRef.current
+        if (current.trim()) {
+          stashRef.current = { text: current, time: Date.now() }
+          setInput('')
+        } else if (stashRef.current && Date.now() - stashRef.current.time < 4000) {
+          setInput(stashRef.current.text)
+          stashRef.current = null
+        }
+        return
       }
       if (e.key === 'Escape') props.onClose()
     }
@@ -151,6 +197,7 @@ export default function CliView(props: {
     if (!text || thinking) return
     props.onSend(node.id, text)
     setInput('')
+    setHistIndex(null)
   }
 
   const tokens = node.usage.input + node.usage.output + node.usage.cacheRead + node.usage.cacheWrite
@@ -251,12 +298,14 @@ export default function CliView(props: {
             </div>
           )}
           <textarea
+            ref={textareaRef}
             value={input}
             placeholder="Message this node, or / for commands"
             onChange={(e) => {
               setInput(e.target.value)
               setAcIndex(0)
               setAcDismissed(false)
+              setHistIndex(null)
             }}
             onKeyDown={(e) => {
               if (showAc) {
@@ -281,7 +330,40 @@ export default function CliView(props: {
                   return
                 }
               }
-              if (e.key === 'Enter' && !e.shiftKey) {
+              // Ctrl+Enter inserts a newline, like Shift+Enter.
+              if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault()
+                insertNewlineAtCaret()
+                return
+              }
+              // Up/Down recall previous messages when the caret is on the edge line.
+              if (e.key === 'ArrowUp' && history.length) {
+                const caret = e.currentTarget.selectionStart
+                if (!input.slice(0, caret).includes('\n')) {
+                  e.preventDefault()
+                  const idx =
+                    histIndex === null ? history.length - 1 : Math.max(0, histIndex - 1)
+                  setHistIndex(idx)
+                  setInput(history[idx])
+                  return
+                }
+              }
+              if (e.key === 'ArrowDown' && histIndex !== null) {
+                const caret = e.currentTarget.selectionStart
+                if (!input.slice(caret).includes('\n')) {
+                  e.preventDefault()
+                  if (histIndex >= history.length - 1) {
+                    setHistIndex(null)
+                    setInput('')
+                  } else {
+                    const idx = histIndex + 1
+                    setHistIndex(idx)
+                    setInput(history[idx])
+                  }
+                  return
+                }
+              }
+              if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
                 e.preventDefault()
                 send()
               }
