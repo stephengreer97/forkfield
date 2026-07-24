@@ -1,23 +1,18 @@
 import { randomUUID } from 'crypto'
-import { app } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import type { SessionEvent, Usage, StartTurnParams } from '../shared/types'
 
 // In a packaged app the SDK's own binary resolution points inside app.asar,
-// which can't be executed. Point it at the unpacked claude binary instead.
+// which can't be executed. If the unpacked binary exists (packaged build),
+// point the SDK at it. In dev / the WSL run there is no app.asar.unpacked, so
+// this returns undefined and the SDK resolves the binary from node_modules.
 function getClaudeExecutable(): string | undefined {
-  if (!app.isPackaged) return undefined
+  const resources = process.resourcesPath
+  if (!resources) return undefined
   const pkg = `claude-agent-sdk-${process.platform}-${process.arch}`
   const bin = process.platform === 'win32' ? 'claude.exe' : 'claude'
-  const p = join(
-    process.resourcesPath,
-    'app.asar.unpacked',
-    'node_modules',
-    '@anthropic-ai',
-    pkg,
-    bin
-  )
+  const p = join(resources, 'app.asar.unpacked', 'node_modules', '@anthropic-ai', pkg, bin)
   return existsSync(p) ? p : undefined
 }
 

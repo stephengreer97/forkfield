@@ -1,6 +1,6 @@
 {
   "name": "forkfield",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A branching canvas for Claude Code",
   "author": "",
   "main": "./out/main/index.js",
