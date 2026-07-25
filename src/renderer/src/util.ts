@@ -23,6 +23,17 @@ export function childCount(nodes: CanvasNode[], parentId: string): number {
   return nodes.filter((n) => n.parentId === parentId).length
 }
 
+// True if the node's title or any transcript text contains the (lowercased) query.
+export function nodeMatches(n: CanvasNode, q: string): boolean {
+  if (n.title.toLowerCase().includes(q)) return true
+  for (const t of n.turns) {
+    for (const b of t.blocks) {
+      if (b.text && b.text.toLowerCase().includes(q)) return true
+    }
+  }
+  return false
+}
+
 // The chain of nodes from the root down to (and including) the given node.
 export function lineage(nodes: CanvasNode[], nodeId: string): { id: string; title: string }[] {
   const byId = new Map(nodes.map((n) => [n.id, n]))
@@ -35,6 +46,44 @@ export function lineage(nodes: CanvasNode[], nodeId: string): { id: string; titl
     cur = cur.parentId ? byId.get(cur.parentId) : undefined
   }
   return chain
+}
+
+// Tidy tree layout: x by depth, y packed so each parent centers over its
+// subtree. Multiple roots stack vertically. Returns new positions by node id.
+export function tidyLayout(nodes: CanvasNode[]): Record<string, { x: number; y: number }> {
+  const COL = 340
+  const ROW = 150
+  const X0 = 80
+  const childrenOf = new Map<string, CanvasNode[]>()
+  for (const n of nodes) {
+    if (n.parentId) {
+      const arr = childrenOf.get(n.parentId) ?? []
+      arr.push(n)
+      childrenOf.set(n.parentId, arr)
+    }
+  }
+  const pos: Record<string, { x: number; y: number }> = {}
+  let cursor = 0
+  const place = (node: CanvasNode, depth: number): number => {
+    const kids = childrenOf.get(node.id) ?? []
+    const x = X0 + depth * COL
+    if (kids.length === 0) {
+      const y = cursor * ROW + 120
+      cursor += 1
+      pos[node.id] = { x, y }
+      return y
+    }
+    const ys = kids.map((k) => place(k, depth + 1))
+    const y = (ys[0] + ys[ys.length - 1]) / 2
+    pos[node.id] = { x, y }
+    return y
+  }
+  const roots = nodes.filter((n) => !n.parentId)
+  for (const r of roots) {
+    place(r, 0)
+    cursor += 1 // gap between separate trees
+  }
+  return pos
 }
 
 export function buildBranchPrompt(selection: string, question: string): string {

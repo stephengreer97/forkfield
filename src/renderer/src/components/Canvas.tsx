@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import type { JSX } from 'react'
 import {
   ReactFlow,
@@ -12,7 +12,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useStore } from '../store'
-import { descendantIds } from '../util'
+import { descendantIds, nodeMatches } from '../util'
 import type { CanvasNode } from '../../../shared/types'
 import NodeCard, { type BranchNodeData } from './NodeCard'
 
@@ -33,25 +33,18 @@ function statusColor(status: CanvasNode['status'] | undefined, dark: boolean): s
   }
 }
 
-function matchesSearch(n: CanvasNode, q: string): boolean {
-  if (n.title.toLowerCase().includes(q)) return true
-  for (const t of n.turns) {
-    for (const b of t.blocks) {
-      if (b.text && b.text.toLowerCase().includes(q)) return true
-    }
-  }
-  return false
-}
-
 export default function Canvas(props: {
   onOpen: (id: string) => void
   onMenu: (id: string, x: number, y: number) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
   search: string
+  focus?: { id: string; nonce: number } | null
+  fitNonce?: number
 }): JSX.Element | null {
   const canvas = useStore((s) => s.canvas)
   const permissions = useStore((s) => s.permissions)
   const moveNode = useStore((s) => s.moveNode)
+  const instanceRef = useRef<ReactFlowInstance | null>(null)
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -66,6 +59,7 @@ export default function Canvas(props: {
 
   // Place the primary root on the left, vertically centered in the viewport.
   const onInit = useCallback((instance: ReactFlowInstance) => {
+    instanceRef.current = instance
     const c = useStore.getState().canvas
     if (!c) return
     const root = c.nodes.find((n) => !n.parentId) ?? c.nodes[0]
@@ -77,6 +71,23 @@ export default function Canvas(props: {
     const y = h / 2 - root.position.y * zoom - 70
     instance.setViewport({ x, y, zoom })
   }, [])
+
+  // Pan/zoom to a searched node when the jump target changes.
+  const focusId = props.focus?.id
+  const focusNonce = props.focus?.nonce
+  useEffect(() => {
+    const inst = instanceRef.current
+    if (!inst || !focusId) return
+    const n = useStore.getState().canvas?.nodes.find((x) => x.id === focusId)
+    if (!n) return
+    inst.setCenter(n.position.x + 132, n.position.y + 60, { zoom: 0.95, duration: 400 })
+  }, [focusId, focusNonce])
+
+  // Fit the whole graph after a tidy layout.
+  useEffect(() => {
+    if (props.fitNonce === undefined) return
+    instanceRef.current?.fitView({ duration: 400, padding: 0.2 })
+  }, [props.fitNonce])
 
   if (!canvas) return null
 
@@ -102,7 +113,7 @@ export default function Canvas(props: {
       data: {
         node: n,
         permission: permissions[n.id],
-        dim: q ? !matchesSearch(n, q) : false,
+        dim: q ? !nodeMatches(n, q) : false,
         hiddenCount: hiddenCount.get(n.id) ?? 0,
         onOpen: props.onOpen,
         onMenu: props.onMenu,

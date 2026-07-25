@@ -5,6 +5,7 @@ import Canvas from './components/Canvas'
 import CliView from './components/CliView'
 import Toaster from './components/Toaster'
 import Icon from './components/Icon'
+import CommandPalette, { type PaletteItem } from './components/CommandPalette'
 import {
   autoTitle,
   buildBranchPrompt,
@@ -12,7 +13,9 @@ import {
   formatCost,
   formatTokens,
   lastAssistantText,
-  lineage
+  lineage,
+  nodeMatches,
+  tidyLayout
 } from './util'
 import {
   KEY_COMMANDS,
@@ -98,6 +101,10 @@ export default function App(): JSX.Element {
   const [diffView, setDiffView] = useState<{ title: string; text: string } | null>(null)
   const [collect, setCollect] = useState<{ nodeId: string } | null>(null)
   const [search, setSearch] = useState('')
+  const [matchIndex, setMatchIndex] = useState(0)
+  const [searchFocus, setSearchFocus] = useState<{ id: string; nonce: number } | null>(null)
+  const [fitNonce, setFitNonce] = useState(0)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(() =>
     localStorage.getItem('forkfield:file')
   )
@@ -178,7 +185,8 @@ export default function App(): JSX.Element {
       const match = KEY_COMMANDS.find((c) => comboFor(c.id, kb) === combo)
       if (!match) return
       e.preventDefault()
-      if (match.id === 'newRoot') setNewRootChoice(true)
+      if (match.id === 'commandPalette') setPaletteOpen((v) => !v)
+      else if (match.id === 'newRoot') setNewRootChoice(true)
       else if (match.id === 'openSettings') setSettingsOpen(true)
       else if (match.id === 'focusSearch') {
         const input = document.querySelector('.topbar-search') as HTMLInputElement | null
@@ -428,6 +436,13 @@ export default function App(): JSX.Element {
     setCollect({ nodeId })
   }, [])
 
+  const doTidy = useCallback(() => {
+    const c = useStore.getState().canvas
+    if (!c) return
+    useStore.getState().setNodePositions(tidyLayout(c.nodes))
+    setFitNonce((n) => n + 1)
+  }, [])
+
   const mergeFindings = useCallback(
     (parentId: string) => {
       const c = useStore.getState().canvas
@@ -530,13 +545,54 @@ export default function App(): JSX.Element {
 
   const openNode = openNodeId ? canvas.nodes.find((n) => n.id === openNodeId) ?? null : null
 
+  const q = search.trim().toLowerCase()
+  const matches = q ? canvas.nodes.filter((n) => nodeMatches(n, q)) : []
+  const matchPos = matches.length ? Math.min(matchIndex, matches.length - 1) : 0
+  const jumpTo = (i: number): void => {
+    if (matches.length === 0) return
+    const idx = ((i % matches.length) + matches.length) % matches.length
+    setMatchIndex(idx)
+    setSearchFocus({ id: matches[idx].id, nonce: Date.now() })
+  }
+
+  const paletteItems: PaletteItem[] = [
+    { id: 'cmd-newroot', label: 'New root session', icon: 'plus', run: () => setNewRootChoice(true) },
+    { id: 'cmd-tidy', label: 'Tidy layout', icon: 'tidy', run: doTidy },
+    { id: 'cmd-settings', label: 'Open settings', icon: 'settings', run: () => setSettingsOpen(true) },
+    {
+      id: 'cmd-theme',
+      label: 'Toggle light / dark theme',
+      icon: 'command',
+      run: () =>
+        useStore
+          .getState()
+          .updateSettings({ theme: canvas.settings.theme === 'dark' ? 'light' : 'dark' })
+    },
+    ...canvas.nodes.map((n) => ({
+      id: 'go-' + n.id,
+      label: n.title,
+      hint: 'Open node',
+      icon: 'branch' as const,
+      run: () => useStore.getState().openNode(n.id)
+    }))
+  ]
+
   return (
     <div className="app">
       <TopBar
         totalTokens={total.tokens}
         totalCost={total.cost}
         search={search}
-        onSearch={setSearch}
+        onSearch={(v) => {
+          setSearch(v)
+          setMatchIndex(0)
+        }}
+        matchCount={matches.length}
+        matchPos={matchPos}
+        onJumpNext={() => jumpTo(matchPos + 1)}
+        onJumpPrev={() => jumpTo(matchPos - 1)}
+        onOpenPalette={() => setPaletteOpen(true)}
+        onTidy={doTidy}
         onNewRoot={() => setNewRootChoice(true)}
         onOpenSettings={() => setSettingsOpen(true)}
       />
@@ -545,6 +601,8 @@ export default function App(): JSX.Element {
         onMenu={onMenu}
         onRespondPermission={respondPermission}
         search={search}
+        focus={searchFocus}
+        fitNonce={fitNonce}
       />
       {canvas.nodes.length === 0 && (
         <EmptyCanvasHint onNewRoot={() => setNewRootChoice(true)} />
@@ -727,6 +785,9 @@ export default function App(): JSX.Element {
           onMerge={() => mergeFindings(collect.nodeId)}
           onClose={() => setCollect(null)}
         />
+      )}
+      {paletteOpen && (
+        <CommandPalette items={paletteItems} onClose={() => setPaletteOpen(false)} />
       )}
       <Toaster />
     </div>
@@ -1034,22 +1095,72 @@ function TopBar(props: {
   totalCost: number
   search: string
   onSearch: (q: string) => void
+  matchCount: number
+  matchPos: number
+  onJumpNext: () => void
+  onJumpPrev: () => void
+  onOpenPalette: () => void
+  onTidy: () => void
   onNewRoot: () => void
   onOpenSettings: () => void
 }): JSX.Element {
+  const hasQuery = props.search.trim().length > 0
   return (
     <div className="topbar">
       <div className="topbar-left">
         <span className="brand">Forkfield</span>
       </div>
       <div className="topbar-right">
-        <input
-          className="topbar-search"
-          type="search"
-          placeholder="Search nodes…"
-          value={props.search}
-          onChange={(e) => props.onSearch(e.target.value)}
-        />
+        <div className={`topbar-searchbox${hasQuery ? ' active' : ''}`}>
+          <Icon name="search" size={14} className="search-lead" />
+          <input
+            className="topbar-search"
+            type="search"
+            placeholder="Search nodes…"
+            value={props.search}
+            onChange={(e) => props.onSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                if (e.shiftKey) props.onJumpPrev()
+                else props.onJumpNext()
+              }
+            }}
+          />
+          {hasQuery && (
+            <span className="search-nav">
+              <span className="search-count">
+                {props.matchCount ? `${props.matchPos + 1}/${props.matchCount}` : '0/0'}
+              </span>
+              <button
+                className="search-navbtn"
+                title="Previous match (Shift+Enter)"
+                disabled={!props.matchCount}
+                onClick={props.onJumpPrev}
+              >
+                <Icon name="chevronLeft" size={13} />
+              </button>
+              <button
+                className="search-navbtn"
+                title="Next match (Enter)"
+                disabled={!props.matchCount}
+                onClick={props.onJumpNext}
+              >
+                <Icon name="chevronRight" size={13} />
+              </button>
+            </span>
+          )}
+        </div>
+        <button
+          className="btn icon-btn"
+          title="Command palette (Ctrl+K)"
+          onClick={props.onOpenPalette}
+        >
+          <Icon name="command" size={15} />
+        </button>
+        <button className="btn icon-btn" title="Tidy layout" onClick={props.onTidy}>
+          <Icon name="tidy" size={15} />
+        </button>
         <span className="usage-pill" title="Total tokens and cost across all nodes">
           {formatTokens(props.totalTokens)} tok · {formatCost(props.totalCost)}
         </span>
@@ -1057,11 +1168,7 @@ function TopBar(props: {
           <Icon name="plus" size={14} />
           New root
         </button>
-        <button
-          className="btn icon-btn"
-          title="Settings"
-          onClick={props.onOpenSettings}
-        >
+        <button className="btn icon-btn" title="Settings" onClick={props.onOpenSettings}>
           <Icon name="settings" size={15} />
         </button>
       </div>

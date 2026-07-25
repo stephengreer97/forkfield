@@ -7,6 +7,7 @@ export interface KeyCommand {
 }
 
 export const KEY_COMMANDS: KeyCommand[] = [
+  { id: 'commandPalette', label: 'Command palette', default: 'mod+k' },
   { id: 'newRoot', label: 'New root session', default: 'mod+shift+n' },
   { id: 'focusSearch', label: 'Search nodes', default: 'mod+f' },
   { id: 'openSettings', label: 'Open settings', default: 'mod+,' }

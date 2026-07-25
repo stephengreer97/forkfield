@@ -57,6 +57,7 @@ interface Store {
   toggleCollapse(nodeId: string): void
   clearNodeSession(nodeId: string): void
   moveNode(nodeId: string, x: number, y: number): void
+  setNodePositions(positions: Record<string, { x: number; y: number }>): void
   deleteNode(nodeId: string): string[]
   clearPermission(nodeId: string): void
   markUnread(nodeId: string): void
@@ -358,6 +359,16 @@ export const useStore = create<Store>((set, get) => ({
           return n
         })
       }
+    })
+  },
+
+  setNodePositions(positions) {
+    set((s) => {
+      if (!s.canvas) return s
+      const nodes = s.canvas.nodes.map((n) =>
+        positions[n.id] ? { ...n, position: positions[n.id] } : n
+      )
+      return { canvas: { ...s.canvas, nodes } }
     })
   },
 
