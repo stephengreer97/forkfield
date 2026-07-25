@@ -4,6 +4,7 @@ import type { CanvasNode, ContentBlock, Turn } from '../../../shared/types'
 import type { PendingPermission } from '../store'
 import { formatCost, formatTokens } from '../util'
 import { Markdown } from './Markdown'
+import Icon from './Icon'
 
 interface BranchPopover {
   text: string
@@ -255,11 +256,16 @@ export default function CliView(props: {
                 title="Show this branch's file changes"
                 onClick={() => props.onShowDiff!(node.id)}
               >
+                <Icon name="diff" size={13} />
                 Diff
               </button>
             )}
-            <button className="btn tiny ghost" onClick={props.onClose}>
-              ✕
+            <button
+              className="btn tiny ghost icon-btn"
+              title="Close"
+              onClick={props.onClose}
+            >
+              <Icon name="close" size={14} />
             </button>
           </div>
         </div>
@@ -538,13 +544,15 @@ function BlockView(props: {
     if (!props.showToolDetail) {
       return (
         <div className="block-tool compact">
-          ▷ <b>{b.toolName}</b>
+          <Icon name="chevronRight" size={12} /> <b>{b.toolName}</b>
         </div>
       )
     }
     return (
       <div className="block-tool">
-        ▷ <b>{b.toolName}</b>
+        <span className="block-tool-head">
+          <Icon name="chevronRight" size={12} /> <b>{b.toolName}</b>
+        </span>
         <pre className="tool-input">{safeJson(b.toolInput)}</pre>
       </div>
     )

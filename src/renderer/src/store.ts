@@ -18,10 +18,23 @@ export interface PendingPermission {
   input: unknown
 }
 
+export type ToastKind = 'info' | 'warn' | 'success'
+export interface Toast {
+  id: string
+  kind: ToastKind
+  message: string
+  actionLabel?: string
+  onAction?: () => void
+  duration?: number
+}
+
 interface Store {
   canvas: CanvasState | null
   openNodeId: string | null
   permissions: Record<string, PendingPermission | undefined>
+  toasts: Toast[]
+  pushToast(t: Omit<Toast, 'id'>): void
+  dismissToast(id: string): void
 
   setCanvas(c: CanvasState | null): void
   createEmptyCanvas(): void
@@ -88,6 +101,15 @@ export const useStore = create<Store>((set, get) => ({
   canvas: null,
   openNodeId: null,
   permissions: {},
+  toasts: [],
+
+  pushToast(t) {
+    set((s) => ({ toasts: [...s.toasts, { ...t, id: uuid() }] }))
+  },
+
+  dismissToast(id) {
+    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }))
+  },
 
   setCanvas(c) {
     if (c) {

@@ -3,6 +3,8 @@ import type { JSX, ReactNode } from 'react'
 import { useStore } from './store'
 import Canvas from './components/Canvas'
 import CliView from './components/CliView'
+import Toaster from './components/Toaster'
+import Icon from './components/Icon'
 import {
   autoTitle,
   buildBranchPrompt,
@@ -92,7 +94,6 @@ export default function App(): JSX.Element {
   const [configDialog, setConfigDialog] = useState<{ nodeId: string } | null>(null)
   const [loginInfo, setLoginInfo] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
   const [diffView, setDiffView] = useState<{ title: string; text: string } | null>(null)
   const [collect, setCollect] = useState<{ nodeId: string } | null>(null)
   const [search, setSearch] = useState('')
@@ -150,11 +151,12 @@ export default function App(): JSX.Element {
         const spent = c.nodes.reduce((a, n) => a + n.usage.costUsd, 0)
         if (spent >= cap) {
           spendWarnedRef.current = true
-          setNotice(
-            `This canvas has spent ${formatCost(spent)}, past your ${formatCost(
-              cap
-            )} cap. Raise or clear the cap in Settings.`
-          )
+          useStore.getState().pushToast({
+            kind: 'warn',
+            message: `Spent ${formatCost(spent)}, past your ${formatCost(cap)} cap.`,
+            actionLabel: 'Settings',
+            onAction: () => setSettingsOpen(true)
+          })
         }
       }
     })
@@ -234,9 +236,12 @@ export default function App(): JSX.Element {
     }
     const settings = useStore.getState().canvas!.settings
     if (concurrentThinking() >= settings.maxConcurrent) {
-      setNotice(
-        `You have ${settings.maxConcurrent} branches running (the concurrency limit). Wait for one to finish, or raise the limit in Settings.`
-      )
+      useStore.getState().pushToast({
+        kind: 'warn',
+        message: `${settings.maxConcurrent} branches already running. Wait, or raise the limit.`,
+        actionLabel: 'Settings',
+        onAction: () => setSettingsOpen(true)
+      })
       return
     }
     // Name the node from its first real prompt.
@@ -283,9 +288,10 @@ export default function App(): JSX.Element {
           useStore.getState().setNodeWorktree(node.id, wt)
           cwd = wt.path
         } else {
-          setNotice(
-            'Branch isolation is on, but this folder is not a git repository, so this branch shares the parent folder.'
-          )
+          useStore.getState().pushToast({
+            kind: 'info',
+            message: 'Not a git repo, so this branch shares the parent folder.'
+          })
         }
       }
 
@@ -310,9 +316,12 @@ export default function App(): JSX.Element {
   const overCap = useCallback((extra: number): boolean => {
     const settings = useStore.getState().canvas!.settings
     if (concurrentThinking() + extra > settings.maxConcurrent) {
-      setNotice(
-        `That would exceed your limit of ${settings.maxConcurrent} concurrent branches. Wait for some to finish, or raise the limit in Settings.`
-      )
+      useStore.getState().pushToast({
+        kind: 'warn',
+        message: `That exceeds your limit of ${settings.maxConcurrent} concurrent branches.`,
+        actionLabel: 'Settings',
+        onAction: () => setSettingsOpen(true)
+      })
       return true
     }
     return false
@@ -705,15 +714,6 @@ export default function App(): JSX.Element {
           onClose={() => setSettingsOpen(false)}
         />
       )}
-      {notice && (
-        <ConfirmDialog
-          title="Heads up"
-          message={notice}
-          confirmLabel="OK"
-          onConfirm={() => setNotice(null)}
-          onCancel={() => setNotice(null)}
-        />
-      )}
       {diffView && <DiffDialog view={diffView} onClose={() => setDiffView(null)} />}
       {collect && (
         <CollectDialog
@@ -723,6 +723,7 @@ export default function App(): JSX.Element {
           onClose={() => setCollect(null)}
         />
       )}
+      <Toaster />
     </div>
   )
 }
@@ -743,8 +744,8 @@ function CollectDialog(props: {
       <div className="diff-dialog">
         <div className="diff-header">
           <h3>Findings · {props.parent?.title ?? 'node'}</h3>
-          <button className="btn tiny ghost" onClick={props.onClose}>
-            ✕
+          <button className="btn tiny ghost icon-btn" onClick={props.onClose}>
+            <Icon name="close" size={14} />
           </button>
         </div>
         <div className="collect-body">
@@ -785,8 +786,8 @@ function DiffDialog(props: {
       <div className="diff-dialog">
         <div className="diff-header">
           <h3>Changes · {props.view.title}</h3>
-          <button className="btn tiny ghost" onClick={props.onClose}>
-            ✕
+          <button className="btn tiny ghost icon-btn" onClick={props.onClose}>
+            <Icon name="close" size={14} />
           </button>
         </div>
         <pre className="diff-body">{props.view.text}</pre>
@@ -1048,10 +1049,15 @@ function TopBar(props: {
           {formatTokens(props.totalTokens)} tok · {formatCost(props.totalCost)}
         </span>
         <button className="btn" onClick={props.onNewRoot}>
+          <Icon name="plus" size={14} />
           New root
         </button>
-        <button className="btn" title="Settings" onClick={props.onOpenSettings}>
-          ⚙
+        <button
+          className="btn icon-btn"
+          title="Settings"
+          onClick={props.onOpenSettings}
+        >
+          <Icon name="settings" size={15} />
         </button>
       </div>
     </div>
@@ -1107,8 +1113,12 @@ function KeybindingRow(props: {
             {formatCombo(props.combo)}
           </button>
           {props.overridden && (
-            <button className="btn tiny ghost" title="Reset to default" onClick={props.onReset}>
-              ↺
+            <button
+              className="btn tiny ghost icon-btn"
+              title="Reset to default"
+              onClick={props.onReset}
+            >
+              <Icon name="undo" size={13} />
             </button>
           )}
         </>
