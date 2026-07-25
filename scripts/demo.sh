@@ -29,11 +29,11 @@ echo "Driving the tour..."
 node scripts/drive.mjs "$FRAMES"
 
 echo "Encoding..."
-if command -v ffmpeg >/dev/null 2>&1; then
-  MP4="${OUT%.gif}.mp4"
-  ffmpeg -y -framerate 6.5 -i "$FRAMES/f%04d.png" -vf "format=yuv420p" -movflags +faststart "$MP4" >/dev/null 2>&1
-  echo "Wrote $MP4 ($(du -h "$MP4" | cut -f1))"
-else
-  convert -delay 15 -loop 0 "$FRAMES"/f*.png -layers OptimizePlus "$OUT"
-  echo "Wrote $OUT ($(du -h "$OUT" | cut -f1))"
-fi
+FFBIN="${FFMPEG:-ffmpeg}"
+MP4="${OUT%.gif}.mp4"
+# Real per-frame timing from the screencast manifest, sped up 1.7x, resampled
+# to a smooth constant 30fps.
+"$FFBIN" -y -f concat -safe 0 -i "$FRAMES/frames.txt" \
+  -vf "setpts=PTS/1.7,fps=30,format=yuv420p,pad=ceil(iw/2)*2:ceil(ih/2)*2" \
+  -c:v libx264 -crf 22 -preset slow -movflags +faststart "$MP4" >/dev/null 2>&1
+echo "Wrote $MP4 ($(du -h "$MP4" | cut -f1))"

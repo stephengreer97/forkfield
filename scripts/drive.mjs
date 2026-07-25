@@ -1,32 +1,30 @@
 #!/usr/bin/env node
-// Forkfield demo driver. Attaches to the app over the Chrome DevTools Protocol
-// (launch with FORKFIELD_DEBUG=1, which opens port 9222), scripts a short tour
-// that shows the core idea (fork one Claude session into parallel branches),
-// and captures full-resolution frames for encoding into a video.
+// Forkfield demo driver. Attaches over CDP (launch with FORKFIELD_DEBUG=1) and
+// performs the REAL interaction with a visible fake cursor: open a root session,
+// type an exploratory question, send it, then highlight answers and branch off
+// them by typing into the branch box. Captures a high-fps screencast that is
+// encoded (with real timing, then sped up) into demo.mp4.
 //
 // Usage: node scripts/drive.mjs <frames-dir>
 import WebSocket from 'ws'
-import { writeFileSync, mkdirSync } from 'fs'
+import { writeFileSync, mkdirSync, mkdtempSync } from 'fs'
+import { tmpdir } from 'os'
 import { join } from 'path'
 
-const PORT = 9222
-const outDir = process.argv[2] || '/tmp/forkfield-demo'
+const outDir = process.argv[2] || '/tmp/forkfield-demo/frames'
 mkdirSync(outDir, { recursive: true })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function findPageTarget() {
+async function findPage() {
   for (let i = 0; i < 40; i++) {
     try {
-      const res = await fetch(`http://127.0.0.1:${PORT}/json/list`)
-      const list = await res.json()
-      const page = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl)
-      if (page) return page
-    } catch {
-      /* not up yet */
-    }
+      const list = await (await fetch('http://127.0.0.1:9222/json/list')).json()
+      const p = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl)
+      if (p) return p
+    } catch {}
     await sleep(500)
   }
-  throw new Error('No page target on :9222 (launch with FORKFIELD_DEBUG=1)')
+  throw new Error('no page target on :9222 (launch with FORKFIELD_DEBUG=1)')
 }
 
 class CDP {
@@ -34,183 +32,205 @@ class CDP {
     this.ws = ws
     this.id = 0
     this.pending = new Map()
-    ws.on('message', (data) => {
-      const msg = JSON.parse(data.toString())
-      if (msg.id && this.pending.has(msg.id)) {
-        const { resolve, reject } = this.pending.get(msg.id)
-        this.pending.delete(msg.id)
-        if (msg.error) reject(new Error(msg.error.message))
-        else resolve(msg.result)
+    this.listeners = new Map()
+    ws.on('message', (d) => {
+      const m = JSON.parse(d.toString())
+      if (m.id && this.pending.has(m.id)) {
+        const { resolve, reject } = this.pending.get(m.id)
+        this.pending.delete(m.id)
+        m.error ? reject(new Error(m.error.message)) : resolve(m.result)
+      } else if (m.method) {
+        const h = this.listeners.get(m.method)
+        if (h) h(m.params)
       }
     })
   }
+  on(method, cb) {
+    this.listeners.set(method, cb)
+  }
   send(method, params = {}) {
     const id = ++this.id
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
+    return new Promise((res, rej) => {
+      this.pending.set(id, { resolve: res, reject: rej })
       this.ws.send(JSON.stringify({ id, method, params }))
     })
   }
-  async evaluate(expression) {
-    const r = await this.send('Runtime.evaluate', {
-      expression,
-      awaitPromise: true,
-      returnByValue: true
-    })
-    if (r.exceptionDetails) {
-      throw new Error(r.exceptionDetails.exception?.description || 'evaluate failed')
-    }
+  async ev(expression) {
+    const r = await this.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || 'ev failed')
     return r.result?.value
   }
 }
 
-let frame = 0
-async function shot(cdp) {
-  const r = await cdp.send('Page.captureScreenshot', { format: 'png' })
-  writeFileSync(join(outDir, `f${String(frame++).padStart(4, '0')}.png`), Buffer.from(r.data, 'base64'))
-}
-
-// Root session with a clear decision point that invites branching.
-const SEED_ROOT = String.raw`
-(() => {
-  const S = window.__ff.store;
-  const uid = () => crypto.randomUUID();
-  const U = (i,o,c) => ({input:i,output:o,cacheWrite:0,cacheRead:c,costUsd:((i+o)/1e6)*9});
-  const T = (role,text,model) => ({id:uid(),role,blocks:[{kind:'text',text}],createdAt:Date.now(),model});
-  const root = uid();
-  const nodes = [{
-    id:root, parentId:null, branchPoint:null, seedSelection:null, sessionId:'d0',
-    workingDirectory:'/home/sgreer/mealio_central', position:{x:120,y:260},
-    status:'complete', title:'Speed up the dashboard', unread:false,
-    model:'claude-opus-4-8', usage:U(1400,900,4200), turns:[
-      T('user','The dashboard takes about 4 seconds to load. Make it faster.'),
-      T('assistant','The bottleneck is the analytics aggregate query. Two solid directions:\n\n1. Cache the aggregated result so repeat loads are instant.\n2. Paginate and lazy-load so the first paint happens fast.\n\nThey trade freshness against simplicity. Want me to try both as separate branches and compare the results?','claude-opus-4-8')
-    ]
-  }];
-  S.getState().setCanvas({id:uid(),createdAt:Date.now(),settings:{},nodes});
-  window.__root = root;
+const CURSOR = String.raw`(() => {
+  if (document.getElementById('__cur')) return true;
+  const c = document.createElement('div');
+  c.id = '__cur';
+  c.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" style="display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))"><path d="M4 2 L4 19 L8.5 14.5 L11.5 21.5 L14 20.4 L11 13.6 L17 13.6 Z" fill="#fff" stroke="#111" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+  Object.assign(c.style, {position:'fixed',left:'700px',top:'450px',zIndex:'999999',pointerEvents:'none',transition:'left .5s cubic-bezier(.3,.7,.2,1), top .5s cubic-bezier(.3,.7,.2,1)'});
+  document.body.appendChild(c);
+  window.__moveCur = (x,y) => { c.style.left = x+'px'; c.style.top = y+'px'; };
+  window.__curSel = (sel,fx,fy) => { const e=document.querySelector(sel); if(!e) return false; const r=e.getBoundingClientRect(); window.__moveCur(r.left+r.width*(fx==null?0.5:fx), r.top+r.height*(fy==null?0.5:fy)); return true; };
+  window.__pulse = () => { c.animate([{transform:'scale(1)'},{transform:'scale(0.8)'},{transform:'scale(1)'}],{duration:220}); };
   return true;
-})()
-`
-
-// Fork a branch off the root, mid-thought, ready to stream.
-function makeBranch(varName, title, selection, prompt, model) {
-  return String.raw`
-(() => {
-  const S = window.__ff.store;
-  const n = S.getState().addBranch(window.__root, 1, ${JSON.stringify(selection)});
-  S.getState().setNodeTitle(n.id, ${JSON.stringify(title)}, true);
-  S.getState().setNodeModel(n.id, ${JSON.stringify(model)});
-  S.getState().appendUserTurn(n.id, ${JSON.stringify(prompt)});
-  S.getState().applyEvent({type:'status', nodeId:n.id, status:'thinking'});
-  window.${varName} = n.id;
-  return n.id;
-})()
-`
-}
-
-function streamChunk(varName, turnVar, text) {
-  return `window.__ff.store.getState().applyEvent({type:'assistant_text',nodeId:window.${varName},turnId:window.${turnVar},text:${JSON.stringify(
-    text
-  )}})`
-}
-function done(varName, turnVar, cost) {
-  return `(()=>{const S=window.__ff.store;S.getState().applyEvent({type:'turn_done',nodeId:window.${varName},turnId:window.${turnVar},usage:{input:2100,output:1300,cacheWrite:0,cacheRead:8000,costUsd:${cost}},sessionId:'x',model:'m'});S.getState().applyEvent({type:'status',nodeId:window.${varName},status:'complete'});})()`
-}
+})()`
 
 async function main() {
-  const target = await findPageTarget()
-  const ws = new WebSocket(target.webSocketDebuggerUrl, { perMessageDeflate: false })
-  await new Promise((res, rej) => {
-    ws.once('open', res)
-    ws.once('error', rej)
+  const cwd = mkdtempSync(join(tmpdir(), 'ff-demo-'))
+  const ws = new WebSocket((await findPage()).webSocketDebuggerUrl, { perMessageDeflate: false })
+  await new Promise((r, j) => {
+    ws.once('open', r)
+    ws.once('error', j)
   })
   const cdp = new CDP(ws)
   await cdp.send('Page.enable')
   await cdp.send('Runtime.enable')
   for (let i = 0; i < 40; i++) {
-    if (await cdp.evaluate('!!(window.__ff && window.__ff.store)')) break
+    if (await cdp.ev('!!(window.__ff&&window.__ff.store)')) break
     await sleep(300)
   }
-  const ev = (e) => cdp.evaluate(e)
-  const clickTitle = (t) =>
-    ev(`(()=>{const b=[...document.querySelectorAll('button')].find(x=>x.title&&x.title.indexOf(${JSON.stringify(
-      t
-    )})===0);if(b){b.click();return true}return false})()`)
+  const ev = (e) => cdp.ev(e)
 
-  // Capture frames continuously in the background.
-  let running = true
-  ;(async () => {
-    while (running) {
-      try {
-        await shot(cdp)
-      } catch {
-        /* transient */
-      }
-      await sleep(150)
+  // High-fps screencast capture.
+  let n = 0
+  const frames = []
+  cdp.on('Page.screencastFrame', (p) => {
+    const name = `f${String(n++).padStart(5, '0')}.jpg`
+    try {
+      writeFileSync(join(outDir, name), Buffer.from(p.data, 'base64'))
+      frames.push({ name, ts: p.metadata.timestamp })
+    } catch {}
+    cdp.send('Page.screencastFrameAck', { sessionId: p.sessionId }).catch(() => {})
+  })
+
+  const moveTo = async (sel, fx, fy, wait = 560) => {
+    await ev(`window.__curSel(${JSON.stringify(sel)},${fx == null ? 'null' : fx},${fy == null ? 'null' : fy})`)
+    await sleep(wait)
+  }
+  const clickSel = async (sel, after = 300) => {
+    await moveTo(sel)
+    await ev(`window.__pulse()`)
+    await sleep(120)
+    await ev(`document.querySelector(${JSON.stringify(sel)}).click()`)
+    await sleep(after)
+  }
+  const proto = (sel) =>
+    `(document.querySelector(${JSON.stringify(
+      sel
+    )}).tagName==='TEXTAREA'?window.HTMLTextAreaElement:window.HTMLInputElement).prototype`
+  const type = async (sel, text, per = 46) => {
+    await ev(`document.querySelector(${JSON.stringify(sel)}).focus()`)
+    let cur = ''
+    for (const ch of text) {
+      cur += ch
+      await ev(
+        `(()=>{const el=document.querySelector(${JSON.stringify(
+          sel
+        )});const s=Object.getOwnPropertyDescriptor(${proto(
+          sel
+        )},'value').set;s.call(el,${JSON.stringify(cur)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`
+      )
+      await sleep(per)
     }
-  })()
+  }
+  const waitFor = async (expr, ms = 60000, poll = 500) => {
+    const t = Date.now()
+    while (Date.now() - t < ms) {
+      if (await ev(expr)) return true
+      await sleep(poll)
+    }
+    return false
+  }
 
-  // 1. One root session; open it and let the viewer read the decision point.
-  await ev(SEED_ROOT)
-  await sleep(400)
-  await ev(`window.__ff.openNode(window.__root)`)
-  await sleep(3600)
+  await ev(CURSOR)
+  await cdp.send('Page.startScreencast', {
+    format: 'jpeg',
+    quality: 80,
+    everyNthFrame: 1,
+    maxWidth: 1400,
+    maxHeight: 900
+  })
 
-  // 2. Back to the canvas.
-  await ev(`window.__ff.openNode(null)`)
+  // 1. One empty root session in a fresh folder; center it on screen.
+  await ev(`(() => {
+    const S=window.__ff.store, uid=()=>crypto.randomUUID();
+    const root=uid();
+    S.getState().setCanvas({id:uid(),createdAt:Date.now(),
+      settings:{permissionMode:'skip', switchOnBranch:false},
+      nodes:[{id:root,parentId:null,branchPoint:null,seedSelection:null,sessionId:null,
+        workingDirectory:${JSON.stringify(cwd)},position:{x:120,y:180},status:'idle',
+        turns:[],usage:{input:0,output:0,cacheWrite:0,cacheRead:0,costUsd:0},title:'New session',unread:false,model:'sonnet'}]});
+    window.__root=root; return true;
+  })()`)
+  // Let React Flow mount and measure the node before fitting, so the opening
+  // frame is centered and zoomed in rather than small in a corner.
   await sleep(1100)
+  await clickSel('button[title^="Tidy"]', 500)
+  await clickSel('button[title^="Tidy"]', 900)
 
-  // 3. Fork two branches that explore the two approaches, in parallel.
-  await ev(makeBranch('__b1', 'Cache the query', 'Cache the aggregated result', 'Cache the aggregate query so repeat loads are instant.', 'claude-opus-4-8'))
-  await sleep(250)
-  await ev(makeBranch('__b2', 'Paginate + lazy-load', 'Paginate and lazy-load', 'Paginate the results and lazy-load the rest so first paint is fast.', 'claude-sonnet-5'))
-  await ev(`window.__t1='s1';window.__t2='s2';`)
+  // 2. Open the root, type an exploratory question, send it.
+  await clickSel('.node-card', 700)
+  await waitFor(`!!document.querySelector('.cli-input textarea')`, 8000)
+  await moveTo('.cli-input textarea')
+  await type('.cli-input textarea', 'List the 10 most significant turning points in human history — one short line each, numbered.')
   await sleep(300)
-  await clickTitle('Tidy')
-  await sleep(1500)
+  await clickSel('.cli-input .btn.primary', 500)
 
-  // 4. Both branches stream their work concurrently.
-  const s1 = [
-    'Added a 60s cache on the ',
-    'aggregate query keyed by the active filters. ',
-    'Repeat loads drop from ~4s to about 120ms.'
-  ]
-  const s2 = [
-    'Split the query into a fast first ',
-    'page plus a background prefetch of the rest. ',
-    'First paint is now ~600ms; the rest fills in.'
-  ]
-  for (let i = 0; i < 3; i++) {
-    await ev(streamChunk('__b1', '__t1', s1[i]))
-    await sleep(220)
-    await ev(streamChunk('__b2', '__t2', s2[i]))
-    await sleep(360)
-  }
-  await ev(done('__b1', '__t1', 0.06))
-  await ev(done('__b2', '__t2', 0.05))
-  await sleep(1400)
-
-  // 5. A third parallel idea, to show it scales.
-  await ev(makeBranch('__b3', 'Precompute nightly', 'precompute', 'Precompute the aggregate nightly into a summary table.', 'claude-haiku-4-5'))
-  await ev(`window.__t3='s3';`)
-  await sleep(250)
-  await clickTitle('Tidy')
+  // 3. Wait for the list to finish streaming.
+  await waitFor(`window.__ff.store.getState().canvas.nodes.find(n=>n.id===window.__root).status==='complete'`, 70000)
   await sleep(1200)
-  const s3 = ['Materialized the aggregate into a ', 'nightly summary table; the dashboard now reads it directly in ~40ms.']
-  for (let i = 0; i < 2; i++) {
-    await ev(streamChunk('__b3', '__t3', s3[i]))
-    await sleep(420)
-  }
-  await ev(done('__b3', '__t3', 0.02))
-  await sleep(2600)
 
-  running = false
+  // 4. Highlight an item and branch off it by typing a follow-up.
+  const branchOff = async (liIndex, question) => {
+    await ev(
+      `window.__curSel('.cli-transcript .md-ol li:nth-child(${liIndex + 1})', 0.5, 0.5)`
+    )
+    await sleep(560)
+    await ev(`(()=>{
+      const li=document.querySelectorAll('.cli-transcript .md-ol li')[${liIndex}];
+      if(!li) return false;
+      const r=document.createRange(); r.selectNodeContents(li);
+      const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      document.querySelector('.cli-transcript').dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));
+      return true;
+    })()`)
+    await sleep(700)
+    await moveTo('.branch-popover input', 0.5, 0.5)
+    await type('.branch-popover input', question)
+    await sleep(250)
+    await clickSel('.branch-popover .btn.primary', 700)
+  }
+  await branchOff(2, 'Why was this such a turning point?')
+  await sleep(600)
+  await branchOff(6, 'What everyday life was like right before this?')
+  await sleep(900)
+
+  // 5. Close the overlay to reveal the branches running in parallel.
+  await clickSel('.cli-header-right button[title="Close"]', 700)
+  await clickSel('button[title^="Tidy"]', 1200)
+
+  // 6. Let both branches finish, capturing the concurrent streaming.
+  await waitFor(
+    `window.__ff.store.getState().canvas.nodes.filter(n=>n.parentId).every(n=>n.status==='complete')`,
+    70000
+  )
+  await ev(`window.__curSel('button[title^="Tidy"]')`)
+  await sleep(3000)
+
+  await cdp.send('Page.stopScreencast')
   await sleep(300)
   ws.close()
-  console.log(`captured ${frame} frames to ${outDir}`)
-}
 
+  // Emit a concat manifest with real per-frame durations.
+  let manifest = ''
+  for (let i = 0; i < frames.length; i++) {
+    const dur = i < frames.length - 1 ? Math.max(0.02, frames[i + 1].ts - frames[i].ts) : 0.15
+    manifest += `file '${frames[i].name}'\nduration ${dur.toFixed(3)}\n`
+  }
+  if (frames.length) manifest += `file '${frames[frames.length - 1].name}'\n`
+  writeFileSync(join(outDir, 'frames.txt'), manifest)
+  console.log(`captured ${frames.length} frames to ${outDir}`)
+}
 main().catch((e) => {
   console.error(e)
   process.exit(1)
