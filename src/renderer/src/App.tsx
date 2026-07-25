@@ -11,6 +11,14 @@ import {
   formatTokens,
   lastAssistantText
 } from './util'
+import {
+  KEY_COMMANDS,
+  comboFor,
+  eventCombo,
+  formatCombo,
+  hasModifier,
+  type KeyCommand
+} from './keybindings'
 import type {
   CanvasNode,
   CanvasSettings,
@@ -150,6 +158,33 @@ export default function App(): JSX.Element {
         }
       }
     })
+  }, [])
+
+  // Global, rebindable keyboard shortcuts.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const combo = eventCombo(e)
+      if (!combo) return
+      const el = document.activeElement as HTMLElement | null
+      const editable =
+        !!el &&
+        (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+      // Never steal plain keystrokes while the user is typing.
+      if (editable && !hasModifier(combo)) return
+      const kb = useStore.getState().canvas?.settings.keybindings ?? {}
+      const match = KEY_COMMANDS.find((c) => comboFor(c.id, kb) === combo)
+      if (!match) return
+      e.preventDefault()
+      if (match.id === 'newRoot') setNewRootChoice(true)
+      else if (match.id === 'openSettings') setSettingsOpen(true)
+      else if (match.id === 'focusSearch') {
+        const input = document.querySelector('.topbar-search') as HTMLInputElement | null
+        input?.focus()
+        input?.select()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   // Apply theme and font scale to the document.
@@ -1035,6 +1070,53 @@ function SettingsRow(props: { label: string; hint?: string; children: ReactNode 
   )
 }
 
+function KeybindingRow(props: {
+  cmd: KeyCommand
+  combo: string
+  overridden: boolean
+  onRebind: (combo: string) => void
+  onReset: () => void
+}): JSX.Element {
+  const [recording, setRecording] = useState(false)
+  return (
+    <SettingsRow label={props.cmd.label}>
+      {recording ? (
+        <button
+          className="config-select recording"
+          autoFocus
+          onBlur={() => setRecording(false)}
+          onKeyDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (e.key === 'Escape') {
+              setRecording(false)
+              return
+            }
+            const combo = eventCombo(e.nativeEvent)
+            // Require a modifier so shortcuts can't clash with plain typing.
+            if (!combo || !hasModifier(combo)) return
+            props.onRebind(combo)
+            setRecording(false)
+          }}
+        >
+          Press keys…
+        </button>
+      ) : (
+        <>
+          <button className="config-select" onClick={() => setRecording(true)}>
+            {formatCombo(props.combo)}
+          </button>
+          {props.overridden && (
+            <button className="btn tiny ghost" title="Reset to default" onClick={props.onReset}>
+              ↺
+            </button>
+          )}
+        </>
+      )}
+    </SettingsRow>
+  )
+}
+
 function SettingsDialog(props: {
   settings: CanvasSettings
   onChange: (patch: Partial<CanvasSettings>) => void
@@ -1153,7 +1235,10 @@ function SettingsDialog(props: {
               onChange={(e) => set({ showToolDetail: e.target.checked })}
             />
           </SettingsRow>
-          <SettingsRow label="Branch isolation" hint="Worktree activates once git support lands">
+          <SettingsRow
+            label="Branch isolation"
+            hint="Worktree gives each branch its own checkout in a git repo"
+          >
             <select
               value={s.isolation}
               onChange={(e) => set({ isolation: e.target.value as Isolation })}
@@ -1162,6 +1247,21 @@ function SettingsDialog(props: {
               <option value="worktree">Git worktree per branch</option>
             </select>
           </SettingsRow>
+          <div className="settings-subhead">Keyboard shortcuts</div>
+          {KEY_COMMANDS.map((cmd) => (
+            <KeybindingRow
+              key={cmd.id}
+              cmd={cmd}
+              combo={comboFor(cmd.id, s.keybindings)}
+              overridden={!!s.keybindings[cmd.id]}
+              onRebind={(combo) => set({ keybindings: { ...s.keybindings, [cmd.id]: combo } })}
+              onReset={() => {
+                const next = { ...s.keybindings }
+                delete next[cmd.id]
+                set({ keybindings: next })
+              }}
+            />
+          ))}
         </div>
         <div className="confirm-actions">
           <button className="btn primary" onClick={props.onClose}>

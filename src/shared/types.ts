@@ -80,6 +80,7 @@ export interface CanvasSettings {
   switchOnBranch: boolean
   showToolDetail: boolean
   fontScale: number
+  keybindings: Record<string, string>
 }
 
 export function defaultSettings(): CanvasSettings {
@@ -95,7 +96,8 @@ export function defaultSettings(): CanvasSettings {
     confirmDelete: true,
     switchOnBranch: true,
     showToolDetail: true,
-    fontScale: 1
+    fontScale: 1,
+    keybindings: {}
   }
 }
 
