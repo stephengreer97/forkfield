@@ -32,6 +32,7 @@ export interface Turn {
   role: 'user' | 'assistant'
   blocks: ContentBlock[]
   usage?: Usage
+  model?: string
   createdAt: number
 }
 
@@ -124,7 +125,14 @@ export type SessionEvent =
   | { type: 'assistant_text'; nodeId: string; turnId: string; text: string }
   | { type: 'tool_use'; nodeId: string; turnId: string; toolName: string; input: unknown }
   | { type: 'tool_result'; nodeId: string; turnId: string; text: string; isError: boolean }
-  | { type: 'turn_done'; nodeId: string; turnId: string; usage: Usage; sessionId: string | null }
+  | {
+      type: 'turn_done'
+      nodeId: string
+      turnId: string
+      usage: Usage
+      sessionId: string | null
+      model?: string | null
+    }
   | { type: 'permission_request'; nodeId: string; requestId: string; toolName: string; input: unknown }
   | { type: 'slash_commands'; nodeId: string; commands: string[] }
   | { type: 'error'; nodeId: string; message: string }

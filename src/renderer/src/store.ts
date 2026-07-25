@@ -480,7 +480,10 @@ export const useStore = create<Store>((set, get) => ({
               if (e.sessionId) n.sessionId = e.sessionId
               if (e.nodeId !== s.openNodeId) n.unread = true
               const turn = n.turns.find((t) => t.id === e.turnId)
-              if (turn) turn.usage = e.usage
+              if (turn) {
+                turn.usage = e.usage
+                if (e.model) turn.model = e.model
+              }
               return n
             })
           }

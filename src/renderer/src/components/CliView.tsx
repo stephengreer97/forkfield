@@ -13,6 +13,15 @@ interface BranchPopover {
   y: number
 }
 
+// "claude-opus-4-8" / "claude-3-5-sonnet-..." -> "opus" / "sonnet" / "haiku".
+function shortModel(model: string): string {
+  const m = model.toLowerCase()
+  if (m.includes('opus')) return 'opus'
+  if (m.includes('sonnet')) return 'sonnet'
+  if (m.includes('haiku')) return 'haiku'
+  return model
+}
+
 export default function CliView(props: {
   node: CanvasNode
   anim?: 'collapse' | 'enter' | null
@@ -25,8 +34,11 @@ export default function CliView(props: {
   onInterrupt: (nodeId: string) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
   onShowDiff?: (nodeId: string) => void
+  lineage?: { id: string; title: string }[]
+  onNavigate?: (nodeId: string) => void
 }): JSX.Element {
   const { node } = props
+  const [focus, setFocus] = useState(false)
   const [input, setInput] = useState('')
   const [popover, setPopover] = useState<BranchPopover | null>(null)
   const [question, setQuestion] = useState('')
@@ -233,13 +245,33 @@ export default function CliView(props: {
       }}
     >
       <div
-        className={`cli-panel${
+        className={`cli-panel${focus ? ' focus' : ''}${
           props.anim === 'collapse' ? ' anim-collapse' : props.anim === 'enter' ? ' anim-enter' : ''
         }`}
       >
         <div className="cli-header">
           <div className="cli-title">
-            <span className="cli-node-title">{node.title}</span>
+            {props.lineage && props.lineage.length > 1 ? (
+              <nav className="cli-breadcrumb">
+                {props.lineage.map((h, i) => {
+                  const last = i === props.lineage!.length - 1
+                  return (
+                    <span key={h.id} className="crumb-wrap">
+                      {i > 0 && <Icon name="chevronRight" size={11} className="crumb-sep" />}
+                      {last ? (
+                        <span className="crumb current">{h.title}</span>
+                      ) : (
+                        <button className="crumb" onClick={() => props.onNavigate?.(h.id)}>
+                          {h.title}
+                        </button>
+                      )}
+                    </span>
+                  )
+                })}
+              </nav>
+            ) : (
+              <span className="cli-node-title">{node.title}</span>
+            )}
             <span className="cli-cwd">{node.workingDirectory}</span>
           </div>
           <div className="cli-header-right">
@@ -249,7 +281,10 @@ export default function CliView(props: {
             <span className="usage-pill">
               {formatTokens(tokens)} tok · {formatCost(node.usage.costUsd)}
             </span>
-            <span className={`cli-status status-${node.status}`}>{node.status}</span>
+            <span className={`cli-status status-${node.status}`}>
+              <span className="status-dot" />
+              {node.status}
+            </span>
             {node.worktree && props.onShowDiff && (
               <button
                 className="btn tiny"
@@ -262,9 +297,12 @@ export default function CliView(props: {
             )}
             <button
               className="btn tiny ghost icon-btn"
-              title="Close"
-              onClick={props.onClose}
+              title={focus ? 'Exit focus mode' : 'Focus mode'}
+              onClick={() => setFocus((f) => !f)}
             >
+              <Icon name={focus ? 'collapse' : 'expand'} size={14} />
+            </button>
+            <button className="btn tiny ghost icon-btn" title="Close" onClick={props.onClose}>
               <Icon name="close" size={14} />
             </button>
           </div>
@@ -508,7 +546,12 @@ function TurnView(props: {
   const { turn, index } = props
   return (
     <div className={`turn turn-${turn.role}`} data-turn-index={index}>
-      <div className="turn-role">{turn.role === 'user' ? 'you' : 'claude'}</div>
+      <div className="turn-role">
+        {turn.role === 'user' ? 'you' : 'claude'}
+        {turn.role === 'assistant' && turn.model && (
+          <span className="turn-model">{shortModel(turn.model)}</span>
+        )}
+      </div>
       <div className="turn-body">
         {turn.blocks.map((b, i) => (
           <BlockView

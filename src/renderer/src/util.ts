@@ -23,6 +23,20 @@ export function childCount(nodes: CanvasNode[], parentId: string): number {
   return nodes.filter((n) => n.parentId === parentId).length
 }
 
+// The chain of nodes from the root down to (and including) the given node.
+export function lineage(nodes: CanvasNode[], nodeId: string): { id: string; title: string }[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]))
+  const chain: { id: string; title: string }[] = []
+  let cur = byId.get(nodeId)
+  const seen = new Set<string>()
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id)
+    chain.unshift({ id: cur.id, title: cur.title })
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined
+  }
+  return chain
+}
+
 export function buildBranchPrompt(selection: string, question: string): string {
   const quoted = selection
     .split('\n')

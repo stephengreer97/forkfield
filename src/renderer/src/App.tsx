@@ -11,7 +11,8 @@ import {
   descendantIds,
   formatCost,
   formatTokens,
-  lastAssistantText
+  lastAssistantText,
+  lineage
 } from './util'
 import {
   KEY_COMMANDS,
@@ -562,6 +563,8 @@ export default function App(): JSX.Element {
           onInterrupt={interrupt}
           onRespondPermission={respondPermission}
           onShowDiff={showDiff}
+          lineage={lineage(canvas.nodes, openNode.id)}
+          onNavigate={(id) => useStore.getState().openNode(id)}
         />
       )}
       {menu && (

@@ -550,6 +550,14 @@ body,
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 32px 90px rgba(15, 23, 42, 0.45), 0 10px 28px rgba(15, 23, 42, 0.25);
+  transition: width var(--dur-2) var(--ease), height var(--dur-2) var(--ease),
+    border-radius var(--dur-2) var(--ease);
+}
+.cli-panel.focus {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  border: none;
 }
 
 /* Branch transition: collapse the current CLI toward the new node, then
@@ -594,23 +602,101 @@ body,
 .cli-title {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .cli-node-title {
   font-weight: 700;
 }
+.cli-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 60vw;
+}
+.crumb-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.crumb-sep {
+  color: var(--muted);
+  opacity: 0.6;
+  flex: 0 0 auto;
+}
+.crumb {
+  background: none;
+  border: none;
+  padding: 1px 4px;
+  border-radius: var(--r-1);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crumb:hover {
+  background: var(--panel-3);
+  color: var(--text);
+}
+.crumb.current {
+  font-weight: 700;
+  color: var(--text);
+  padding: 1px 4px;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cli-cwd {
   color: var(--muted);
   font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .cli-header-right {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 0 0 auto;
 }
 .cli-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--st, var(--muted));
   text-transform: uppercase;
+}
+.cli-status.status-thinking {
+  --st: var(--accent);
+}
+.cli-status.status-awaiting_permission {
+  --st: var(--yellow);
+}
+.cli-status.status-complete {
+  --st: var(--green);
+}
+.cli-status.status-error {
+  --st: var(--red);
+}
+.turn-model {
+  margin-left: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--muted);
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 0 6px;
 }
 .cli-seed {
   padding: 8px 16px;

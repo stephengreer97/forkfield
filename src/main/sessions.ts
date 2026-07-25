@@ -43,6 +43,8 @@ interface NodeRuntime {
   cwd: string
   abort: AbortController | null
   busy: boolean
+  lastModel: string | null
+  streamedText: boolean
 }
 
 export class SessionManager {
@@ -67,7 +69,15 @@ export class SessionManager {
   private runtime(nodeId: string, cwd: string): NodeRuntime {
     let rt = this.runtimes.get(nodeId)
     if (!rt) {
-      rt = { nodeId, sessionId: null, cwd, abort: null, busy: false }
+      rt = {
+        nodeId,
+        sessionId: null,
+        cwd,
+        abort: null,
+        busy: false,
+        lastModel: null,
+        streamedText: false
+      }
       this.runtimes.set(nodeId, rt)
     } else {
       rt.cwd = cwd
@@ -91,6 +101,7 @@ export class SessionManager {
     bypass: boolean
   ): Promise<void> {
     rt.busy = true
+    rt.streamedText = false
     const abort = new AbortController()
     rt.abort = abort
     const turnId = randomUUID()
@@ -107,7 +118,7 @@ export class SessionManager {
         abortController: abort,
         appendSystemPrompt: CONCURRENCY_GUIDANCE,
         permissionMode: bypass ? 'bypassPermissions' : 'default',
-        includePartialMessages: false
+        includePartialMessages: true
       }
       if (resume) options.resume = resume
       if (fork) options.forkSession = true
@@ -173,11 +184,29 @@ export class SessionManager {
         }
         break
       }
+      case 'stream_event': {
+        // Partial deltas: stream assistant text token-by-token as it arrives.
+        const ev = message.event
+        if (
+          ev?.type === 'content_block_delta' &&
+          ev.delta?.type === 'text_delta' &&
+          ev.delta.text
+        ) {
+          rt.streamedText = true
+          this.send({ type: 'assistant_text', nodeId: rt.nodeId, turnId, text: ev.delta.text })
+        }
+        break
+      }
       case 'assistant': {
+        if (message.message?.model) rt.lastModel = message.message.model
         const content = message.message?.content ?? []
         for (const block of content) {
           if (block.type === 'text' && block.text) {
-            this.send({ type: 'assistant_text', nodeId: rt.nodeId, turnId, text: block.text })
+            // When we already streamed deltas for this turn, the final message
+            // would duplicate the text; skip it.
+            if (!rt.streamedText) {
+              this.send({ type: 'assistant_text', nodeId: rt.nodeId, turnId, text: block.text })
+            }
           } else if (block.type === 'tool_use') {
             this.send({
               type: 'tool_use',
@@ -224,7 +253,8 @@ export class SessionManager {
           nodeId: rt.nodeId,
           turnId,
           usage,
-          sessionId: rt.sessionId
+          sessionId: rt.sessionId,
+          model: rt.lastModel
         })
         break
       }
