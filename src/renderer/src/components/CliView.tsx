@@ -35,6 +35,8 @@ export default function CliView(props: {
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
   onShowDiff?: (nodeId: string) => void
   onRetry?: (nodeId: string) => void
+  onOpenEditor?: (nodeId: string) => void
+  onPromote?: (nodeId: string) => void
   lineage?: { id: string; title: string }[]
   onNavigate?: (nodeId: string) => void
 }): JSX.Element {
@@ -294,6 +296,25 @@ export default function CliView(props: {
               >
                 <Icon name="diff" size={13} />
                 Diff
+              </button>
+            )}
+            {node.worktree && props.onOpenEditor && (
+              <button
+                className="btn tiny ghost icon-btn"
+                title="Open this branch's worktree in your editor"
+                onClick={() => props.onOpenEditor!(node.id)}
+              >
+                <Icon name="external" size={14} />
+              </button>
+            )}
+            {node.worktree && props.onPromote && (
+              <button
+                className="btn tiny"
+                title="Merge this branch's commits into the base branch"
+                onClick={() => props.onPromote!(node.id)}
+              >
+                <Icon name="merge" size={13} />
+                Promote
               </button>
             )}
             <button

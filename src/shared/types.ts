@@ -83,6 +83,7 @@ export interface CanvasSettings {
   showToolDetail: boolean
   fontScale: number
   keybindings: Record<string, string>
+  editorCommand: string
 }
 
 export function defaultSettings(): CanvasSettings {
@@ -99,7 +100,8 @@ export function defaultSettings(): CanvasSettings {
     switchOnBranch: true,
     showToolDetail: true,
     fontScale: 1,
-    keybindings: {}
+    keybindings: {},
+    editorCommand: 'code'
   }
 }
 
@@ -154,4 +156,6 @@ export interface ForkfieldApi {
   createWorktree(baseDir: string, nodeId: string): Promise<Worktree | null>
   removeWorktree(wt: Worktree): Promise<void>
   gitDiff(wt: Worktree): Promise<string>
+  promoteWorktree(wt: Worktree): Promise<{ ok: boolean; message: string }>
+  openInEditor(command: string, path: string): Promise<{ ok: boolean; message: string }>
 }

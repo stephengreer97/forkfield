@@ -5,7 +5,8 @@ import { readFileSync, writeFileSync } from 'fs'
 import { SessionManager } from './sessions'
 import { loadCanvas, saveCanvas } from './persistence'
 import { loadSessionHistory } from './history'
-import { isGitRepo, createWorktree, removeWorktree, gitDiff } from './git'
+import { spawn } from 'child_process'
+import { isGitRepo, createWorktree, removeWorktree, gitDiff, promoteWorktree } from './git'
 import type { SessionEvent, StartTurnParams, CanvasState, Worktree } from '../shared/types'
 
 let win: BrowserWindow | null = null
@@ -164,6 +165,27 @@ ipcMain.handle('worktree:remove', async (_e, wt: Worktree) => {
 })
 
 ipcMain.handle('git:diff', async (_e, wt: Worktree) => gitDiff(wt))
+
+ipcMain.handle('git:promote', async (_e, wt: Worktree) => promoteWorktree(wt))
+
+ipcMain.handle('editor:open', async (_e, p: { command: string; path: string }) => {
+  const command = (p.command || 'code').trim()
+  try {
+    // Split a simple "cmd arg" command; the folder path is the final argument.
+    const parts = command.split(/\s+/)
+    const bin = parts[0]
+    const child = spawn(bin, [...parts.slice(1), p.path], {
+      detached: true,
+      stdio: 'ignore',
+      shell: process.platform === 'win32'
+    })
+    child.on('error', () => undefined)
+    child.unref()
+    return { ok: true, message: `Opened in ${bin}.` }
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) }
+  }
+})
 
 ipcMain.on('session:interrupt', (_e, nodeId: string) => {
   sessions.interrupt(nodeId)

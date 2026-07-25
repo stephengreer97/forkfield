@@ -106,6 +106,7 @@ export default function App(): JSX.Element {
   const [fitNonce, setFitNonce] = useState(0)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [tagPrompt, setTagPrompt] = useState<{ nodeId: string } | null>(null)
+  const [confirmPromote, setConfirmPromote] = useState<{ nodeId: string } | null>(null)
   const [compareOpen, setCompareOpen] = useState(false)
   const [broadcastOpen, setBroadcastOpen] = useState(false)
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(() =>
@@ -162,9 +163,17 @@ export default function App(): JSX.Element {
         const spent = c.nodes.reduce((a, n) => a + n.usage.costUsd, 0)
         if (spent >= cap) {
           spendWarnedRef.current = true
+          // Hard stop: interrupt everything still running so cost can't climb.
+          for (const node of c.nodes) {
+            if (node.status === 'thinking' || node.status === 'awaiting_permission') {
+              window.forkfield.interrupt(node.id)
+            }
+          }
           useStore.getState().pushToast({
             kind: 'warn',
-            message: `Spent ${formatCost(spent)}, past your ${formatCost(cap)} cap.`,
+            message: `Spent ${formatCost(spent)}, past your ${formatCost(
+              cap
+            )} cap. Running branches were stopped.`,
             actionLabel: 'Settings',
             onAction: () => setSettingsOpen(true)
           })
@@ -200,6 +209,11 @@ export default function App(): JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Re-arm the spend-cap hard stop whenever the cap changes.
+  useEffect(() => {
+    spendWarnedRef.current = false
+  }, [canvas?.settings.spendCapUsd])
 
   // Apply theme and font scale to the document.
   useEffect(() => {
@@ -246,6 +260,7 @@ export default function App(): JSX.Element {
       }
       return
     }
+    if (overSpendCap()) return
     const settings = useStore.getState().canvas!.settings
     if (concurrentThinking() >= settings.maxConcurrent) {
       useStore.getState().pushToast({
@@ -325,12 +340,14 @@ export default function App(): JSX.Element {
     []
   )
 
-  const overCap = useCallback((extra: number): boolean => {
-    const settings = useStore.getState().canvas!.settings
-    if (concurrentThinking() + extra > settings.maxConcurrent) {
+  const overSpendCap = useCallback((): boolean => {
+    const c = useStore.getState().canvas
+    if (!c?.settings.spendCapUsd) return false
+    const spent = c.nodes.reduce((a, n) => a + n.usage.costUsd, 0)
+    if (spent >= c.settings.spendCapUsd) {
       useStore.getState().pushToast({
         kind: 'warn',
-        message: `That exceeds your limit of ${settings.maxConcurrent} concurrent branches.`,
+        message: `Spend cap of ${formatCost(c.settings.spendCapUsd)} reached. Raise it to continue.`,
         actionLabel: 'Settings',
         onAction: () => setSettingsOpen(true)
       })
@@ -338,6 +355,24 @@ export default function App(): JSX.Element {
     }
     return false
   }, [])
+
+  const overCap = useCallback(
+    (extra: number): boolean => {
+      if (overSpendCap()) return true
+      const settings = useStore.getState().canvas!.settings
+      if (concurrentThinking() + extra > settings.maxConcurrent) {
+        useStore.getState().pushToast({
+          kind: 'warn',
+          message: `That exceeds your limit of ${settings.maxConcurrent} concurrent branches.`,
+          actionLabel: 'Settings',
+          onAction: () => setSettingsOpen(true)
+        })
+        return true
+      }
+      return false
+    },
+    [overSpendCap]
+  )
 
   const createBranch = useCallback(
     (parentId: string, turnIndex: number, selection: string, question: string) => {
@@ -466,6 +501,28 @@ export default function App(): JSX.Element {
     setDiffView({ title: node.title, text: 'Loading diff…' })
     void window.forkfield.gitDiff(node.worktree).then((text) => {
       setDiffView({ title: node.title, text: text.trim() || 'No changes yet.' })
+    })
+  }, [])
+
+  const openInEditor = useCallback((nodeId: string) => {
+    const node = useStore.getState().canvas?.nodes.find((n) => n.id === nodeId)
+    if (!node?.worktree) return
+    const cmd = useStore.getState().canvas!.settings.editorCommand || 'code'
+    void window.forkfield.openInEditor(cmd, node.worktree.path).then((r) => {
+      useStore.getState().pushToast({ kind: r.ok ? 'success' : 'warn', message: r.message })
+    })
+  }, [])
+
+  const promoteBranch = useCallback((nodeId: string) => {
+    setConfirmPromote({ nodeId })
+  }, [])
+
+  const doPromote = useCallback((nodeId: string) => {
+    setConfirmPromote(null)
+    const node = useStore.getState().canvas?.nodes.find((n) => n.id === nodeId)
+    if (!node?.worktree) return
+    void window.forkfield.promoteWorktree(node.worktree).then((r) => {
+      useStore.getState().pushToast({ kind: r.ok ? 'success' : 'warn', message: r.message })
     })
   }, [])
 
@@ -675,6 +732,8 @@ export default function App(): JSX.Element {
           onRespondPermission={respondPermission}
           onShowDiff={showDiff}
           onRetry={retryTurn}
+          onOpenEditor={openInEditor}
+          onPromote={promoteBranch}
           lineage={lineage(canvas.nodes, openNode.id)}
           onNavigate={(id) => useStore.getState().openNode(id)}
         />
@@ -735,6 +794,15 @@ export default function App(): JSX.Element {
           danger
           onConfirm={() => performDelete(confirmDelete.nodeId)}
           onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+      {confirmPromote && (
+        <ConfirmDialog
+          title="Promote branch"
+          message="This merges this branch's commits into the branch checked out in the main repo folder. Make sure that folder has no uncommitted work you might lose."
+          confirmLabel="Merge"
+          onConfirm={() => doPromote(confirmPromote.nodeId)}
+          onCancel={() => setConfirmPromote(null)}
         />
       )}
       {tagPrompt && (
@@ -1531,6 +1599,15 @@ function SettingsDialog(props: {
               <option value="shared">Shared folder</option>
               <option value="worktree">Git worktree per branch</option>
             </select>
+          </SettingsRow>
+          <SettingsRow label="Editor command" hint="Used by “Open in editor” on worktree branches">
+            <input
+              type="text"
+              className="config-select editor-cmd"
+              value={s.editorCommand}
+              placeholder="code"
+              onChange={(e) => set({ editorCommand: e.target.value })}
+            />
           </SettingsRow>
           <div className="settings-subhead">Keyboard shortcuts</div>
           {KEY_COMMANDS.map((cmd) => (

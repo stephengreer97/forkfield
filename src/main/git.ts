@@ -57,6 +57,21 @@ export async function removeWorktree(wt: Worktree): Promise<void> {
   }
 }
 
+// Merge the branch's work back into whatever branch is checked out in the main
+// repo. Commits Claude made in the worktree land on the base branch.
+export async function promoteWorktree(
+  wt: Worktree
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    const base = (await git(wt.repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
+    await git(wt.repoRoot, ['merge', '--no-edit', wt.branch])
+    return { ok: true, message: `Merged ${wt.branch} into ${base}.` }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { ok: false, message: msg.split('\n')[0] || 'Merge failed.' }
+  }
+}
+
 // Full patch of everything the branch changed relative to where it forked,
 // including new files (intent-to-add makes untracked files show up in the diff).
 export async function gitDiff(wt: Worktree): Promise<string> {

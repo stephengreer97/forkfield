@@ -33,7 +33,10 @@ const api: ForkfieldApi = {
   createWorktree: (baseDir: string, nodeId: string) =>
     ipcRenderer.invoke('worktree:create', { baseDir, nodeId }),
   removeWorktree: (wt: Worktree) => ipcRenderer.invoke('worktree:remove', wt),
-  gitDiff: (wt: Worktree) => ipcRenderer.invoke('git:diff', wt)
+  gitDiff: (wt: Worktree) => ipcRenderer.invoke('git:diff', wt),
+  promoteWorktree: (wt: Worktree) => ipcRenderer.invoke('git:promote', wt),
+  openInEditor: (command: string, path: string) =>
+    ipcRenderer.invoke('editor:open', { command, path })
 }
 
 contextBridge.exposeInMainWorld('forkfield', api)
