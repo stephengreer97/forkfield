@@ -37,6 +37,12 @@ const CONCURRENCY_GUIDANCE =
   'minutes. If it still fails after the 2 minute retry, stop attempting the operation ' +
   'and clearly tell the user what failed and why.'
 
+interface StreamBlock {
+  type: 'text' | 'tool_use' | 'other'
+  name?: string
+  json: string
+}
+
 interface NodeRuntime {
   nodeId: string
   sessionId: string | null
@@ -44,7 +50,8 @@ interface NodeRuntime {
   abort: AbortController | null
   busy: boolean
   lastModel: string | null
-  streamedText: boolean
+  streamed: boolean
+  blocks: Map<number, StreamBlock>
 }
 
 export class SessionManager {
@@ -76,7 +83,8 @@ export class SessionManager {
         abort: null,
         busy: false,
         lastModel: null,
-        streamedText: false
+        streamed: false,
+        blocks: new Map()
       }
       this.runtimes.set(nodeId, rt)
     } else {
@@ -101,7 +109,8 @@ export class SessionManager {
     bypass: boolean
   ): Promise<void> {
     rt.busy = true
-    rt.streamedText = false
+    rt.streamed = false
+    rt.blocks.clear()
     const abort = new AbortController()
     rt.abort = abort
     const turnId = randomUUID()
@@ -166,6 +175,56 @@ export class SessionManager {
       : { behavior: 'deny', message: 'The user denied this tool call.' }
   }
 
+  // Raw Anthropic streaming events. content_block_start/stop bound each block,
+  // deltas carry text (rendered live) or partial tool-input JSON (assembled and
+  // emitted at the block's stop, preserving text/tool/text ordering).
+  private handleStreamEvent(rt: NodeRuntime, turnId: string, ev: any): void {
+    if (!ev) return
+    switch (ev.type) {
+      case 'message_start':
+        rt.blocks.clear()
+        break
+      case 'content_block_start': {
+        const cb = ev.content_block
+        const type: StreamBlock['type'] =
+          cb?.type === 'text' ? 'text' : cb?.type === 'tool_use' ? 'tool_use' : 'other'
+        rt.blocks.set(ev.index, { type, name: cb?.name, json: '' })
+        break
+      }
+      case 'content_block_delta': {
+        const d = ev.delta
+        if (d?.type === 'text_delta' && d.text) {
+          rt.streamed = true
+          this.send({ type: 'assistant_text', nodeId: rt.nodeId, turnId, text: d.text })
+        } else if (d?.type === 'input_json_delta' && typeof d.partial_json === 'string') {
+          const b = rt.blocks.get(ev.index)
+          if (b) b.json += d.partial_json
+        }
+        break
+      }
+      case 'content_block_stop': {
+        const b = rt.blocks.get(ev.index)
+        if (b?.type === 'tool_use') {
+          let input: unknown = {}
+          try {
+            input = b.json ? JSON.parse(b.json) : {}
+          } catch {
+            input = b.json
+          }
+          rt.streamed = true
+          this.send({
+            type: 'tool_use',
+            nodeId: rt.nodeId,
+            turnId,
+            toolName: b.name ?? 'tool',
+            input
+          })
+        }
+        break
+      }
+    }
+  }
+
   private handleMessage(rt: NodeRuntime, turnId: string, message: any): void {
     switch (message?.type) {
       case 'system': {
@@ -185,28 +244,21 @@ export class SessionManager {
         break
       }
       case 'stream_event': {
-        // Partial deltas: stream assistant text token-by-token as it arrives.
-        const ev = message.event
-        if (
-          ev?.type === 'content_block_delta' &&
-          ev.delta?.type === 'text_delta' &&
-          ev.delta.text
-        ) {
-          rt.streamedText = true
-          this.send({ type: 'assistant_text', nodeId: rt.nodeId, turnId, text: ev.delta.text })
-        }
+        // Reconstruct content from the raw stream so text and tool calls appear
+        // live and in their true order (the final assembled message can't tell
+        // us where a tool call sits between two runs of text).
+        this.handleStreamEvent(rt, turnId, message.event)
         break
       }
       case 'assistant': {
         if (message.message?.model) rt.lastModel = message.message.model
+        // Everything was already emitted from the stream; the final message
+        // would just duplicate it. Only fall back if streaming produced nothing.
+        if (rt.streamed) break
         const content = message.message?.content ?? []
         for (const block of content) {
           if (block.type === 'text' && block.text) {
-            // When we already streamed deltas for this turn, the final message
-            // would duplicate the text; skip it.
-            if (!rt.streamedText) {
-              this.send({ type: 'assistant_text', nodeId: rt.nodeId, turnId, text: block.text })
-            }
+            this.send({ type: 'assistant_text', nodeId: rt.nodeId, turnId, text: block.text })
           } else if (block.type === 'tool_use') {
             this.send({
               type: 'tool_use',
