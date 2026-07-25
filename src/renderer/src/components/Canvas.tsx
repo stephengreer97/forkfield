@@ -18,6 +18,21 @@ import NodeCard, { type BranchNodeData } from './NodeCard'
 
 const nodeTypes = { branch: NodeCard }
 
+function statusColor(status: CanvasNode['status'] | undefined, dark: boolean): string {
+  switch (status) {
+    case 'thinking':
+      return dark ? '#5b9bff' : '#2563eb'
+    case 'awaiting_permission':
+      return dark ? '#e0a92e' : '#d99400'
+    case 'complete':
+      return dark ? '#4ade80' : '#16a34a'
+    case 'error':
+      return dark ? '#f87171' : '#dc2626'
+    default:
+      return dark ? '#435060' : '#c2ccd8'
+  }
+}
+
 function matchesSearch(n: CanvasNode, q: string): boolean {
   if (n.title.toLowerCase().includes(q)) return true
   for (const t of n.turns) {
@@ -104,6 +119,11 @@ export default function Canvas(props: {
       animated: n.status === 'thinking'
     }))
 
+  const theme = canvas.settings.theme
+  const dark =
+    theme === 'dark' ||
+    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
   return (
     <div className="canvas">
       <ReactFlow
@@ -116,8 +136,14 @@ export default function Canvas(props: {
         maxZoom={1.6}
         proOptions={{ hideAttribution: true }}
       >
-        <Background color="#c4cdda" gap={24} />
-        <MiniMap pannable zoomable nodeColor="#c2ccd8" maskColor="rgba(233,237,243,0.6)" />
+        <Background color={dark ? '#2c3540' : '#c4cdda'} gap={24} />
+        <MiniMap
+          pannable
+          zoomable
+          nodeColor={(n) => statusColor((n.data as unknown as BranchNodeData)?.node?.status, dark)}
+          maskColor={dark ? 'rgba(18,22,28,0.65)' : 'rgba(233,237,243,0.6)'}
+          style={{ background: dark ? '#1b2129' : '#ffffff' }}
+        />
         <Controls />
       </ReactFlow>
     </div>

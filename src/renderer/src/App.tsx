@@ -545,7 +545,9 @@ export default function App(): JSX.Element {
         onRespondPermission={respondPermission}
         search={search}
       />
-      {canvas.nodes.length === 0 && <EmptyCanvasHint />}
+      {canvas.nodes.length === 0 && (
+        <EmptyCanvasHint onNewRoot={() => setNewRootChoice(true)} />
+      )}
       {openNode && (
         <CliView
           key={openNode.id}
@@ -1283,15 +1285,35 @@ function SettingsDialog(props: {
   )
 }
 
-function EmptyCanvasHint(): JSX.Element {
+function EmptyCanvasHint(props: { onNewRoot: () => void }): JSX.Element {
   return (
     <div className="empty-hint">
       <div className="empty-hint-card">
-        <h2>No sessions yet</h2>
+        <svg
+          className="empty-art"
+          viewBox="0 0 220 120"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path className="empty-edge" d="M46 60h34c10 0 14-30 24-30h30" />
+          <path className="empty-edge" d="M46 60h34c10 0 14 30 24 30h30" />
+          <rect x="16" y="46" width="30" height="28" rx="6" />
+          <rect x="134" y="16" width="30" height="28" rx="6" />
+          <rect x="134" y="76" width="30" height="28" rx="6" />
+        </svg>
+        <h2>Start a branching session</h2>
         <p>
-          Click <b>New root</b> in the top right to start a Claude Code session in a folder you
-          choose. It becomes your root node, and you can branch off any response from there.
+          A root node is a full Claude Code session in a folder you choose. Highlight any part of a
+          response to fork a branch that inherits the context, and run branches side by side.
         </p>
+        <button className="btn primary lg" onClick={props.onNewRoot}>
+          <Icon name="plus" size={16} />
+          New root session
+        </button>
       </div>
     </div>
   )

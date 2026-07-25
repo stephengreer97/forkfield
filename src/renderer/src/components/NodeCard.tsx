@@ -32,19 +32,27 @@ export default function NodeCard({ data }: NodeProps): JSX.Element {
       className={`node-card status-${n.status}${d.dim ? ' dim' : ''}${
         n.collapsed ? ' collapsed' : ''
       }`}
+      tabIndex={0}
       onClick={() => d.onOpen(n.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') d.onOpen(n.id)
+      }}
       onContextMenu={(e) => {
         e.preventDefault()
         d.onMenu(n.id, e.clientX, e.clientY)
       }}
     >
+      <span className="node-accent" aria-hidden="true" />
       <Handle type="target" position={Position.Left} />
       <div className="node-head">
         <span className="node-title">
           {n.unread && <span className="unread-dot" title="Unread" />}
           {n.title}
         </span>
-        <span className={`node-status status-${n.status}`}>{STATUS_LABEL[n.status]}</span>
+        <span className={`node-status status-${n.status}`}>
+          <span className="status-dot" />
+          {STATUS_LABEL[n.status]}
+        </span>
       </div>
       {n.collapsed && (d.hiddenCount ?? 0) > 0 && (
         <div className="node-collapsed-badge" title="Collapsed subtree">
@@ -84,6 +92,8 @@ export default function NodeCard({ data }: NodeProps): JSX.Element {
         </div>
       )}
       <div className="node-foot">
+        {n.model && <span className="node-model">{n.model}</span>}
+        {n.worktree && <span className="node-model wt">worktree</span>}
         <span className="node-usage">
           {formatTokens(tokens)} tok · {formatCost(n.usage.costUsd)}
         </span>

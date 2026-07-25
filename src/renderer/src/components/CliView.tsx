@@ -283,13 +283,22 @@ export default function CliView(props: {
           onMouseUp={handleMouseUp}
           onContextMenu={handleContextMenu}
         >
-          {node.turns.length === 0 && (
-            <div className="cli-hint">
-              This node is a Claude Code session running in <b>{node.workingDirectory}</b>.
-              <br />
-              <br />
-              Type a message below to start. Highlight any assistant text later to branch off it.
+          {node.turns.length === 0 && node.sessionId ? (
+            <div className="cli-skeleton" aria-label="Loading history">
+              <div className="skeleton skeleton-line" style={{ width: '40%' }} />
+              <div className="skeleton skeleton-line" style={{ width: '92%' }} />
+              <div className="skeleton skeleton-line" style={{ width: '85%' }} />
+              <div className="skeleton skeleton-line" style={{ width: '60%' }} />
             </div>
+          ) : (
+            node.turns.length === 0 && (
+              <div className="cli-hint">
+                This node is a Claude Code session running in <b>{node.workingDirectory}</b>.
+                <br />
+                <br />
+                Type a message below to start. Highlight any assistant text later to branch off it.
+              </div>
+            )
           )}
           {node.turns.map((turn, idx) => (
             <TurnView
