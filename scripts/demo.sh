@@ -28,6 +28,12 @@ done
 echo "Driving the tour..."
 node scripts/drive.mjs "$FRAMES"
 
-echo "Building GIF..."
-convert -delay 16 -loop 0 "$FRAMES"/f*.png -layers OptimizePlus "$OUT"
-echo "Wrote $OUT ($(du -h "$OUT" | cut -f1))"
+echo "Encoding..."
+if command -v ffmpeg >/dev/null 2>&1; then
+  MP4="${OUT%.gif}.mp4"
+  ffmpeg -y -framerate 6.5 -i "$FRAMES/f%04d.png" -vf "format=yuv420p" -movflags +faststart "$MP4" >/dev/null 2>&1
+  echo "Wrote $MP4 ($(du -h "$MP4" | cut -f1))"
+else
+  convert -delay 15 -loop 0 "$FRAMES"/f*.png -layers OptimizePlus "$OUT"
+  echo "Wrote $OUT ($(du -h "$OUT" | cut -f1))"
+fi

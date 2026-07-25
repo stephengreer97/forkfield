@@ -86,7 +86,7 @@ export default function Canvas(props: {
   // Fit the whole graph after a tidy layout.
   useEffect(() => {
     if (props.fitNonce === undefined) return
-    instanceRef.current?.fitView({ duration: 400, padding: 0.2 })
+    instanceRef.current?.fitView({ duration: 400, padding: 0.15 })
   }, [props.fitNonce])
 
   if (!canvas) return null

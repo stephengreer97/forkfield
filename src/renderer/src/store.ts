@@ -241,8 +241,8 @@ export const useStore = create<Store>((set, get) => ({
       sessionId: null,
       workingDirectory: parent.workingDirectory,
       position: {
-        x: parent.position.x + 380,
-        y: parent.position.y + index * 240
+        x: parent.position.x + 440,
+        y: parent.position.y + index * 280
       },
       status: 'idle',
       turns: [],

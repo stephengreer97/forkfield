@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Forkfield demo driver. Attaches to the app over the Chrome DevTools Protocol
-// (the app must be launched with FORKFIELD_DEBUG=1, which opens port 9222),
-// scripts a short guided tour through the automation bridge, and captures
-// frames that are stitched into a GIF with ImageMagick.
+// (launch with FORKFIELD_DEBUG=1, which opens port 9222), scripts a short tour
+// that shows the core idea (fork one Claude session into parallel branches),
+// and captures full-resolution frames for encoding into a video.
 //
 // Usage: node scripts/drive.mjs <frames-dir>
 import WebSocket from 'ws'
@@ -12,7 +12,6 @@ import { join } from 'path'
 const PORT = 9222
 const outDir = process.argv[2] || '/tmp/forkfield-demo'
 mkdirSync(outDir, { recursive: true })
-
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function findPageTarget() {
@@ -27,7 +26,7 @@ async function findPageTarget() {
     }
     await sleep(500)
   }
-  throw new Error('No page target on :9222 (is the app running with FORKFIELD_DEBUG=1?)')
+  throw new Error('No page target on :9222 (launch with FORKFIELD_DEBUG=1)')
 }
 
 class CDP {
@@ -67,48 +66,57 @@ class CDP {
 
 let frame = 0
 async function shot(cdp) {
-  const r = await cdp.send('Page.captureScreenshot', {
-    format: 'png',
-    clip: { x: 0, y: 0, width: 1400, height: 900, scale: 0.5 }
-  })
+  const r = await cdp.send('Page.captureScreenshot', { format: 'png' })
   writeFileSync(join(outDir, `f${String(frame++).padStart(4, '0')}.png`), Buffer.from(r.data, 'base64'))
 }
 
-// --- The scene the driver builds inside the page ------------------------------
-const SEED = String.raw`
+// Root session with a clear decision point that invites branching.
+const SEED_ROOT = String.raw`
 (() => {
   const S = window.__ff.store;
   const uid = () => crypto.randomUUID();
   const U = (i,o,c) => ({input:i,output:o,cacheWrite:0,cacheRead:c,costUsd:((i+o)/1e6)*9});
   const T = (role,text,model) => ({id:uid(),role,blocks:[{kind:'text',text}],createdAt:Date.now(),model});
-  const root=uid(), b1=uid(), b2=uid(), b3=uid(), g1=uid();
-  const wt = (id) => ({path:'/repo/.git/forkfield/'+id.slice(0,8),branch:'forkfield/'+id.slice(0,8),baseRef:'abc123',repoRoot:'/home/sgreer/mealio_central'});
-  const nodes = [
-    {id:root,parentId:null,branchPoint:null,seedSelection:null,sessionId:'d0',workingDirectory:'/home/sgreer/mealio_central',position:{x:80,y:60},status:'complete',title:'Add dark mode',unread:false,usage:U(1200,760,4200),model:'claude-opus-4-8',turns:[
-      T('user','Add a dark mode toggle to the app header.'),
-      T('assistant','There are two clean ways to do this: CSS custom properties flipped by a data-theme attribute, or Tailwind’s dark: variant. The variable approach is lighter to retrofit and needs no build changes.\n\nWant me to try both as branches and compare?','claude-opus-4-8')
-    ]},
-    {id:b1,parentId:root,branchPoint:{parentTurnIndex:1},seedSelection:'CSS custom properties flipped by a data-theme attribute',sessionId:'d1',workingDirectory:'/home/sgreer/mealio_central',position:{x:520,y:-120},status:'complete',title:'CSS variables approach',unread:false,tags:['keep'],model:'claude-opus-4-8',worktree:wt(b1),usage:U(2400,1500,9000),turns:[
-      T('user','Try the CSS custom properties approach.'),
-      T('assistant','Defined the palette as variables on :root and overrode them under :root[data-theme="dark"]. A single toggle flips the attribute, so every component recolors with zero per-component work. No Tailwind config or build change needed.','claude-opus-4-8')
-    ]},
-    {id:b2,parentId:root,branchPoint:{parentTurnIndex:1},seedSelection:'Tailwind’s dark: variant',sessionId:'d2',workingDirectory:'/home/sgreer/mealio_central',position:{x:520,y:120},status:'complete',title:'Tailwind dark variant',unread:true,tags:['wip'],model:'claude-sonnet-5',worktree:wt(b2),usage:U(1900,1200,7000),turns:[
-      T('user','Try the Tailwind dark: variant instead.'),
-      T('assistant','Set darkMode:"class" and prefixed color utilities with dark:. It works, but it touches every component that sets a color, so it’s a larger diff than the variable approach.','claude-sonnet-5')
-    ]},
-    {id:b3,parentId:root,branchPoint:{parentTurnIndex:1},seedSelection:'compare',sessionId:'d3',workingDirectory:'/home/sgreer/mealio_central',position:{x:520,y:360},status:'idle',title:'Sync to OS preference',unread:false,model:'claude-sonnet-5',usage:U(0,0,0),turns:[
-      T('user','Make the theme follow the OS setting when set to system.')
-    ]},
-    {id:g1,parentId:b1,branchPoint:{parentTurnIndex:1},seedSelection:'a single toggle flips the attribute',sessionId:'d4',workingDirectory:'/home/sgreer/mealio_central',position:{x:960,y:-120},status:'complete',title:'Persist choice',unread:false,tags:['keep'],model:'claude-haiku-4-5',worktree:wt(g1),usage:U(700,400,3000),turns:[
-      T('user','Persist the choice to localStorage and restore on load.'),
-      T('assistant','Reads the saved theme on startup and writes it whenever the toggle changes, so the preference survives reloads.','claude-haiku-4-5')
-    ]}
-  ];
+  const root = uid();
+  const nodes = [{
+    id:root, parentId:null, branchPoint:null, seedSelection:null, sessionId:'d0',
+    workingDirectory:'/home/sgreer/mealio_central', position:{x:120,y:260},
+    status:'complete', title:'Speed up the dashboard', unread:false,
+    model:'claude-opus-4-8', usage:U(1400,900,4200), turns:[
+      T('user','The dashboard takes about 4 seconds to load. Make it faster.'),
+      T('assistant','The bottleneck is the analytics aggregate query. Two solid directions:\n\n1. Cache the aggregated result so repeat loads are instant.\n2. Paginate and lazy-load so the first paint happens fast.\n\nThey trade freshness against simplicity. Want me to try both as separate branches and compare the results?','claude-opus-4-8')
+    ]
+  }];
   S.getState().setCanvas({id:uid(),createdAt:Date.now(),settings:{},nodes});
-  window.__ffIds = {root,b1,b2,b3,g1};
+  window.__root = root;
   return true;
 })()
 `
+
+// Fork a branch off the root, mid-thought, ready to stream.
+function makeBranch(varName, title, selection, prompt, model) {
+  return String.raw`
+(() => {
+  const S = window.__ff.store;
+  const n = S.getState().addBranch(window.__root, 1, ${JSON.stringify(selection)});
+  S.getState().setNodeTitle(n.id, ${JSON.stringify(title)}, true);
+  S.getState().setNodeModel(n.id, ${JSON.stringify(model)});
+  S.getState().appendUserTurn(n.id, ${JSON.stringify(prompt)});
+  S.getState().applyEvent({type:'status', nodeId:n.id, status:'thinking'});
+  window.${varName} = n.id;
+  return n.id;
+})()
+`
+}
+
+function streamChunk(varName, turnVar, text) {
+  return `window.__ff.store.getState().applyEvent({type:'assistant_text',nodeId:window.${varName},turnId:window.${turnVar},text:${JSON.stringify(
+    text
+  )}})`
+}
+function done(varName, turnVar, cost) {
+  return `(()=>{const S=window.__ff.store;S.getState().applyEvent({type:'turn_done',nodeId:window.${varName},turnId:window.${turnVar},usage:{input:2100,output:1300,cacheWrite:0,cacheRead:8000,costUsd:${cost}},sessionId:'x',model:'m'});S.getState().applyEvent({type:'status',nodeId:window.${varName},status:'complete'});})()`
+}
 
 async function main() {
   const target = await findPageTarget()
@@ -120,12 +128,15 @@ async function main() {
   const cdp = new CDP(ws)
   await cdp.send('Page.enable')
   await cdp.send('Runtime.enable')
-
-  // Wait for the automation bridge to exist.
   for (let i = 0; i < 40; i++) {
     if (await cdp.evaluate('!!(window.__ff && window.__ff.store)')) break
     await sleep(300)
   }
+  const ev = (e) => cdp.evaluate(e)
+  const clickTitle = (t) =>
+    ev(`(()=>{const b=[...document.querySelectorAll('button')].find(x=>x.title&&x.title.indexOf(${JSON.stringify(
+      t
+    )})===0);if(b){b.click();return true}return false})()`)
 
   // Capture frames continuously in the background.
   let running = true
@@ -134,86 +145,65 @@ async function main() {
       try {
         await shot(cdp)
       } catch {
-        /* ignore transient */
+        /* transient */
       }
-      await sleep(160)
+      await sleep(150)
     }
   })()
 
-  const ev = (e) => cdp.evaluate(e)
-  const clickTitle = (t) =>
-    ev(`(()=>{const b=[...document.querySelectorAll('button')].find(x=>x.title&&x.title.indexOf(${JSON.stringify(
-      t
-    )})===0);if(b){b.click();return true}return false})()`)
+  // 1. One root session; open it and let the viewer read the decision point.
+  await ev(SEED_ROOT)
+  await sleep(400)
+  await ev(`window.__ff.openNode(window.__root)`)
+  await sleep(3600)
 
-  // 1. Seed the scene, then tidy + fit.
-  await ev(SEED)
-  await sleep(700)
-  await clickTitle('Tidy')
-  await sleep(1600)
-
-  // 2. Command palette: open, type, close.
-  await clickTitle('Command palette')
-  await sleep(700)
-  await ev(
-    `(()=>{const i=document.querySelector('.palette-input');const s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;s.call(i,'dark');i.dispatchEvent(new Event('input',{bubbles:true}));})()`
-  )
-  await sleep(1300)
-  await ev(
-    `document.querySelector('.palette-input').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`
-  )
-  await sleep(700)
-
-  // 3. Open a branch node: breadcrumb + conversation.
-  await ev(`window.__ff.openNode(window.__ffIds.b1)`)
-  await sleep(1800)
-
-  // 4. Streaming: open the idle node and stream a reply in.
-  await ev(`window.__ff.openNode(window.__ffIds.b3)`)
-  await sleep(700)
-  await ev(
-    `(()=>{const id=window.__ffIds.b3;const S=window.__ff.store;S.getState().applyEvent({type:'status',nodeId:id,status:'thinking'});window.__tt='stream1';})()`
-  )
-  const chunks = [
-    'Reading the theme setting',
-    '… when it is "system", I subscribe to ',
-    'the prefers-color-scheme media query ',
-    'and update the data-theme attribute live, ',
-    'so the app follows the OS the moment it changes.'
-  ]
-  for (const c of chunks) {
-    await ev(
-      `window.__ff.store.getState().applyEvent({type:'assistant_text',nodeId:window.__ffIds.b3,turnId:window.__tt,text:${JSON.stringify(
-        c
-      )}})`
-    )
-    await sleep(430)
-  }
-  await ev(
-    `window.__ff.store.getState().applyEvent({type:'turn_done',nodeId:window.__ffIds.b3,turnId:window.__tt,usage:{input:900,output:300,cacheWrite:0,cacheRead:3000,costUsd:0.02},sessionId:'d3',model:'claude-sonnet-5'})`
-  )
-  await ev(
-    `window.__ff.store.getState().applyEvent({type:'status',nodeId:window.__ffIds.b3,status:'complete'})`
-  )
-  await sleep(1200)
-
-  // 5. Dark theme.
-  await ev(`window.__ff.setTheme('dark')`)
-  await sleep(1800)
-
-  // 6. Back to the canvas in dark mode.
+  // 2. Back to the canvas.
   await ev(`window.__ff.openNode(null)`)
+  await sleep(1100)
+
+  // 3. Fork two branches that explore the two approaches, in parallel.
+  await ev(makeBranch('__b1', 'Cache the query', 'Cache the aggregated result', 'Cache the aggregate query so repeat loads are instant.', 'claude-opus-4-8'))
+  await sleep(250)
+  await ev(makeBranch('__b2', 'Paginate + lazy-load', 'Paginate and lazy-load', 'Paginate the results and lazy-load the rest so first paint is fast.', 'claude-sonnet-5'))
+  await ev(`window.__t1='s1';window.__t2='s2';`)
+  await sleep(300)
+  await clickTitle('Tidy')
+  await sleep(1500)
+
+  // 4. Both branches stream their work concurrently.
+  const s1 = [
+    'Added a 60s cache on the ',
+    'aggregate query keyed by the active filters. ',
+    'Repeat loads drop from ~4s to about 120ms.'
+  ]
+  const s2 = [
+    'Split the query into a fast first ',
+    'page plus a background prefetch of the rest. ',
+    'First paint is now ~600ms; the rest fills in.'
+  ]
+  for (let i = 0; i < 3; i++) {
+    await ev(streamChunk('__b1', '__t1', s1[i]))
+    await sleep(220)
+    await ev(streamChunk('__b2', '__t2', s2[i]))
+    await sleep(360)
+  }
+  await ev(done('__b1', '__t1', 0.06))
+  await ev(done('__b2', '__t2', 0.05))
   await sleep(1400)
 
-  // 7. Settings panel (shows the refreshed icon + controls).
-  await clickTitle('Settings')
-  await sleep(1900)
-  await ev(
-    `(()=>{const b=[...document.querySelectorAll('.settings-dialog .btn')].find(x=>x.textContent.trim()==='Done');if(b)b.click();})()`
-  )
-  await sleep(700)
-  await ev(`window.__ff.setTheme('light')`)
-  await sleep(900)
+  // 5. A third parallel idea, to show it scales.
+  await ev(makeBranch('__b3', 'Precompute nightly', 'precompute', 'Precompute the aggregate nightly into a summary table.', 'claude-haiku-4-5'))
+  await ev(`window.__t3='s3';`)
+  await sleep(250)
+  await clickTitle('Tidy')
+  await sleep(1200)
+  const s3 = ['Materialized the aggregate into a ', 'nightly summary table; the dashboard now reads it directly in ~40ms.']
+  for (let i = 0; i < 2; i++) {
+    await ev(streamChunk('__b3', '__t3', s3[i]))
+    await sleep(420)
+  }
+  await ev(done('__b3', '__t3', 0.02))
+  await sleep(2600)
 
   running = false
   await sleep(300)

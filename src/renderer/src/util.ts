@@ -52,8 +52,8 @@ export function lineage(nodes: CanvasNode[], nodeId: string): { id: string; titl
 // Tidy tree layout: x by depth, y packed so each parent centers over its
 // subtree. Multiple roots stack vertically. Returns new positions by node id.
 export function tidyLayout(nodes: CanvasNode[]): Record<string, { x: number; y: number }> {
-  const COL = 340
-  const ROW = 150
+  const COL = 440
+  const ROW = 260
   const X0 = 80
   const childrenOf = new Map<string, CanvasNode[]>()
   for (const n of nodes) {
