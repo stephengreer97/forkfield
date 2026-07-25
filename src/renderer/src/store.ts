@@ -59,6 +59,9 @@ interface Store {
   moveNode(nodeId: string, x: number, y: number): void
   setNodePositions(positions: Record<string, { x: number; y: number }>): void
   deleteNode(nodeId: string): string[]
+  restoreNodes(nodes: CanvasNode[]): void
+  addTag(nodeId: string, tag: string): void
+  removeTag(nodeId: string, tag: string): void
   clearPermission(nodeId: string): void
   markUnread(nodeId: string): void
   makeRoot(nodeId: string): void
@@ -382,6 +385,45 @@ export const useStore = create<Store>((set, get) => ({
     const openNodeId = removed.has(get().openNodeId ?? '') ? null : get().openNodeId
     set({ canvas: { ...canvas, nodes }, permissions, openNodeId })
     return [...removed]
+  },
+
+  restoreNodes(nodes) {
+    set((s) => {
+      if (!s.canvas) return s
+      const have = new Set(s.canvas.nodes.map((n) => n.id))
+      const add = nodes.filter((n) => !have.has(n.id))
+      if (add.length === 0) return s
+      return { canvas: { ...s.canvas, nodes: [...s.canvas.nodes, ...add] } }
+    })
+  },
+
+  addTag(nodeId, tag) {
+    const t = tag.trim()
+    if (!t) return
+    set((s) =>
+      s.canvas
+        ? {
+            canvas: replaceNode(s.canvas, nodeId, (n) => {
+              const tags = n.tags ?? []
+              if (!tags.includes(t)) n.tags = [...tags, t]
+              return n
+            })
+          }
+        : s
+    )
+  },
+
+  removeTag(nodeId, tag) {
+    set((s) =>
+      s.canvas
+        ? {
+            canvas: replaceNode(s.canvas, nodeId, (n) => {
+              n.tags = (n.tags ?? []).filter((x) => x !== tag)
+              return n
+            })
+          }
+        : s
+    )
   },
 
   clearPermission(nodeId) {

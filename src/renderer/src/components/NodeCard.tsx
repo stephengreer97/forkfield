@@ -1,7 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { JSX } from 'react'
 import type { CanvasNode, NodeStatus } from '../../../shared/types'
-import type { PendingPermission } from '../store'
+import { useStore, type PendingPermission } from '../store'
 import { formatCost, formatTokens, nodePreview } from '../util'
 
 export interface BranchNodeData {
@@ -89,6 +89,20 @@ export default function NodeCard({ data }: NodeProps): JSX.Element {
               Deny
             </button>
           </div>
+        </div>
+      )}
+      {n.tags && n.tags.length > 0 && (
+        <div className="node-tags" onClick={(e) => e.stopPropagation()}>
+          {n.tags.map((tag) => (
+            <button
+              key={tag}
+              className="node-tag"
+              title="Click to remove tag"
+              onClick={() => useStore.getState().removeTag(n.id, tag)}
+            >
+              {tag}
+            </button>
+          ))}
         </div>
       )}
       <div className="node-foot">

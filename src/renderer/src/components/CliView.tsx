@@ -34,6 +34,7 @@ export default function CliView(props: {
   onInterrupt: (nodeId: string) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
   onShowDiff?: (nodeId: string) => void
+  onRetry?: (nodeId: string) => void
   lineage?: { id: string; title: string }[]
   onNavigate?: (nodeId: string) => void
 }): JSX.Element {
@@ -473,9 +474,22 @@ export default function CliView(props: {
               Stop (ctrl+c)
             </button>
           ) : (
-            <button className="btn primary" onClick={send} disabled={!input.trim()}>
-              Send
-            </button>
+            <>
+              {props.onRetry && node.turns.some((t) => t.role === 'assistant') && !input.trim() && (
+                <button
+                  className="btn ghost"
+                  title="Ask the last question again"
+                  onClick={() => props.onRetry!(node.id)}
+                >
+                  <Icon name="undo" size={14} />
+                  Retry
+                </button>
+              )}
+              <button className="btn primary" onClick={send} disabled={!input.trim()}>
+                <Icon name="send" size={14} />
+                Send
+              </button>
+            </>
           )}
         </div>
       </div>

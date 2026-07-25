@@ -105,6 +105,9 @@ export default function App(): JSX.Element {
   const [searchFocus, setSearchFocus] = useState<{ id: string; nonce: number } | null>(null)
   const [fitNonce, setFitNonce] = useState(0)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [tagPrompt, setTagPrompt] = useState<{ nodeId: string } | null>(null)
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [broadcastOpen, setBroadcastOpen] = useState(false)
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(() =>
     localStorage.getItem('forkfield:file')
   )
@@ -382,14 +385,29 @@ export default function App(): JSX.Element {
   }, [])
 
   const doDelete = useCallback((nodeId: string) => {
-    // Capture worktrees before the nodes leave the store, then tear them down.
     const before = useStore.getState().canvas?.nodes ?? []
+    const title = before.find((n) => n.id === nodeId)?.title ?? 'node'
     const removed = useStore.getState().deleteNode(nodeId)
     const removedSet = new Set(removed)
+    const snapshot = before.filter((n) => removedSet.has(n.id))
+    const worktrees = snapshot.map((n) => n.worktree).filter((w): w is NonNullable<typeof w> => !!w)
     for (const id of removed) window.forkfield.interrupt(id)
-    for (const n of before) {
-      if (removedSet.has(n.id) && n.worktree) void window.forkfield.removeWorktree(n.worktree)
-    }
+
+    // Defer worktree teardown so Undo can bring the nodes back intact.
+    const timer = window.setTimeout(() => {
+      for (const wt of worktrees) void window.forkfield.removeWorktree(wt)
+    }, 6500)
+
+    const extra = snapshot.length - 1
+    useStore.getState().pushToast({
+      kind: 'info',
+      message: `Deleted ${title}${extra > 0 ? ` and ${extra} branch${extra === 1 ? '' : 'es'}` : ''}`,
+      actionLabel: 'Undo',
+      onAction: () => {
+        window.clearTimeout(timer)
+        useStore.getState().restoreNodes(snapshot)
+      }
+    })
   }, [])
 
   const requestDelete = useCallback(
@@ -422,6 +440,25 @@ export default function App(): JSX.Element {
   const interrupt = useCallback((nodeId: string) => {
     window.forkfield.interrupt(nodeId)
   }, [])
+
+  const retryTurn = useCallback(
+    (nodeId: string) => {
+      const node = useStore.getState().canvas?.nodes.find((n) => n.id === nodeId)
+      if (!node) return
+      let text: string | null = null
+      for (let i = node.turns.length - 1; i >= 0; i--) {
+        if (node.turns[i].role === 'user') {
+          text = node.turns[i].blocks
+            .map((b) => b.text)
+            .filter(Boolean)
+            .join('\n')
+          break
+        }
+      }
+      if (text) sendMessage(nodeId, text)
+    },
+    [sendMessage]
+  )
 
   const showDiff = useCallback((nodeId: string) => {
     const node = useStore.getState().canvas?.nodes.find((n) => n.id === nodeId)
@@ -555,9 +592,25 @@ export default function App(): JSX.Element {
     setSearchFocus({ id: matches[idx].id, nonce: Date.now() })
   }
 
+  const leafNodes = canvas.nodes.filter(
+    (n) => !canvas.nodes.some((c) => c.parentId === n.id)
+  )
+
   const paletteItems: PaletteItem[] = [
     { id: 'cmd-newroot', label: 'New root session', icon: 'plus', run: () => setNewRootChoice(true) },
     { id: 'cmd-tidy', label: 'Tidy layout', icon: 'tidy', run: doTidy },
+    {
+      id: 'cmd-broadcast',
+      label: 'Broadcast prompt to leaves',
+      icon: 'send',
+      run: () => setBroadcastOpen(true)
+    },
+    {
+      id: 'cmd-compare',
+      label: 'Compare two nodes',
+      icon: 'diff',
+      run: () => setCompareOpen(true)
+    },
     { id: 'cmd-settings', label: 'Open settings', icon: 'settings', run: () => setSettingsOpen(true) },
     {
       id: 'cmd-theme',
@@ -621,6 +674,7 @@ export default function App(): JSX.Element {
           onInterrupt={interrupt}
           onRespondPermission={respondPermission}
           onShowDiff={showDiff}
+          onRetry={retryTurn}
           lineage={lineage(canvas.nodes, openNode.id)}
           onNavigate={(id) => useStore.getState().openNode(id)}
         />
@@ -654,6 +708,11 @@ export default function App(): JSX.Element {
             setMenu(null)
             openCollect(id)
           }}
+          onAddTag={() => {
+            const id = menu.nodeId
+            setMenu(null)
+            setTagPrompt({ nodeId: id })
+          }}
           onDelete={() => {
             const id = menu.nodeId
             setMenu(null)
@@ -676,6 +735,37 @@ export default function App(): JSX.Element {
           danger
           onConfirm={() => performDelete(confirmDelete.nodeId)}
           onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+      {tagPrompt && (
+        <PromptDialog
+          title="Add a tag"
+          label="Tag"
+          placeholder="e.g. experiment, keep, wip"
+          confirmLabel="Add tag"
+          onCancel={() => setTagPrompt(null)}
+          onSubmit={(t) => {
+            useStore.getState().addTag(tagPrompt.nodeId, t)
+            setTagPrompt(null)
+          }}
+        />
+      )}
+      {compareOpen && (
+        <CompareDialog nodes={canvas.nodes} onClose={() => setCompareOpen(false)} />
+      )}
+      {broadcastOpen && (
+        <PromptDialog
+          title="Broadcast to leaves"
+          label={`Send to ${leafNodes.length} leaf node${leafNodes.length === 1 ? '' : 's'}`}
+          placeholder="Type a prompt to send to every leaf…"
+          confirmLabel="Broadcast"
+          onCancel={() => setBroadcastOpen(false)}
+          onSubmit={(text) => {
+            setBroadcastOpen(false)
+            if (!text.trim()) return
+            if (overCap(leafNodes.length)) return
+            for (const n of leafNodes) sendMessage(n.id, text.trim())
+          }}
         />
       )}
       {newRootChoice && (
@@ -862,6 +952,75 @@ function DiffDialog(props: {
   )
 }
 
+function ComparePane(props: { node: CanvasNode | null }): JSX.Element {
+  const n = props.node
+  return (
+    <div className="compare-pane">
+      {!n ? (
+        <div className="compare-empty">Pick a node</div>
+      ) : n.turns.length === 0 ? (
+        <div className="compare-empty">No messages yet</div>
+      ) : (
+        n.turns.map((t) => (
+          <div key={t.id} className={`compare-turn turn-${t.role}`}>
+            <div className="compare-role">{t.role === 'user' ? 'you' : 'claude'}</div>
+            <div className="compare-text">
+              {t.blocks
+                .filter((b) => b.kind === 'text' && b.text)
+                .map((b) => b.text)
+                .join('\n') || <span className="compare-empty">(tool activity)</span>}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
+function CompareDialog(props: { nodes: CanvasNode[]; onClose: () => void }): JSX.Element {
+  const n = props.nodes
+  const [a, setA] = useState(n.length >= 2 ? n[n.length - 2].id : n[0]?.id ?? '')
+  const [b, setB] = useState(n[n.length - 1]?.id ?? '')
+  const nodeA = n.find((x) => x.id === a) ?? null
+  const nodeB = n.find((x) => x.id === b) ?? null
+  const options = n.map((x) => (
+    <option key={x.id} value={x.id}>
+      {x.title}
+    </option>
+  ))
+  return (
+    <div
+      className="confirm-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) props.onClose()
+      }}
+    >
+      <div className="compare-dialog">
+        <div className="diff-header">
+          <h3>Compare nodes</h3>
+          <button className="btn tiny ghost icon-btn" onClick={props.onClose}>
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+        <div className="compare-cols">
+          <div className="compare-col">
+            <select className="config-select" value={a} onChange={(e) => setA(e.target.value)}>
+              {options}
+            </select>
+            <ComparePane node={nodeA} />
+          </div>
+          <div className="compare-col">
+            <select className="config-select" value={b} onChange={(e) => setB(e.target.value)}>
+              {options}
+            </select>
+            <ComparePane node={nodeB} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ConfigDialog(props: {
   node: CanvasNode | null
   onChangeModel: () => void
@@ -1009,6 +1168,7 @@ function NodeMenu(props: {
   onMakeRoot: () => void
   onToggleCollapse: () => void
   onCollectFindings: () => void
+  onAddTag: () => void
   onDelete: () => void
   onClose: () => void
 }): JSX.Element {
@@ -1046,6 +1206,9 @@ function NodeMenu(props: {
           disabled={props.directChildCount < 2}
         >
           Collect findings…
+        </button>
+        <button className="menu-item" onClick={props.onAddTag}>
+          Add tag…
         </button>
         <div className="menu-sep" />
         <button className="menu-item danger" onClick={props.onDelete}>

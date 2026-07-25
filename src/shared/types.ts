@@ -55,6 +55,7 @@ export interface CanvasNode {
   worktree?: Worktree | null
   collapsed?: boolean
   autoTitled?: boolean
+  tags?: string[]
 }
 
 export interface Worktree {

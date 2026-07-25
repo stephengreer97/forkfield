@@ -26,6 +26,7 @@ export function childCount(nodes: CanvasNode[], parentId: string): number {
 // True if the node's title or any transcript text contains the (lowercased) query.
 export function nodeMatches(n: CanvasNode, q: string): boolean {
   if (n.title.toLowerCase().includes(q)) return true
+  if (n.tags?.some((t) => t.toLowerCase().includes(q))) return true
   for (const t of n.turns) {
     for (const b of t.blocks) {
       if (b.text && b.text.toLowerCase().includes(q)) return true
