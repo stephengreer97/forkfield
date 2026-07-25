@@ -11,6 +11,14 @@ import type { SessionEvent, StartTurnParams, CanvasState, Worktree } from '../sh
 
 let win: BrowserWindow | null = null
 
+// Debug/automation mode: opt-in via env so a CDP client (the demo driver) can
+// attach. Off by default, so normal users never expose a debug port.
+const DEBUG = process.env.FORKFIELD_DEBUG === '1'
+if (DEBUG) {
+  app.commandLine.appendSwitch('remote-debugging-port', '9222')
+  app.commandLine.appendSwitch('remote-allow-origins', '*')
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1400,
@@ -94,6 +102,8 @@ app.on('window-all-closed', () => {
 })
 
 ipcMain.handle('dialog:chooseDirectory', async () => {
+  // In debug mode, skip the native picker so automation can create sessions.
+  if (DEBUG && process.env.FORKFIELD_DEBUG_DIR) return process.env.FORKFIELD_DEBUG_DIR
   const res = await dialog.showOpenDialog({
     properties: ['openDirectory', 'createDirectory']
   })

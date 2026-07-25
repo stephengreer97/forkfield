@@ -210,6 +210,19 @@ export default function App(): JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Automation bridge (debug builds only): lets the demo driver script the app
+  // over CDP without touching internals from the outside.
+  useEffect(() => {
+    const w = window as unknown as { __ffdebug?: boolean; __ff?: unknown }
+    if (!w.__ffdebug) return
+    w.__ff = {
+      store: useStore,
+      tidyLayout,
+      openNode: (id: string | null) => useStore.getState().openNode(id),
+      setTheme: (t: ThemePref) => useStore.getState().updateSettings({ theme: t })
+    }
+  }, [])
+
   // Re-arm the spend-cap hard stop whenever the cap changes.
   useEffect(() => {
     spendWarnedRef.current = false

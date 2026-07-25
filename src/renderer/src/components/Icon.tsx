@@ -27,8 +27,10 @@ export type IconName =
 const PATHS: Record<IconName, JSX.Element> = {
   settings: (
     <>
-      <circle cx="8" cy="8" r="2.1" />
-      <path d="M8 1.5v1.7M8 12.8v1.7M14.5 8h-1.7M3.2 8H1.5M12.6 3.4l-1.2 1.2M4.6 11.4l-1.2 1.2M12.6 12.6l-1.2-1.2M4.6 4.6 3.4 3.4" />
+      <path d="M2.5 4.5h4M9 4.5h4.5M2.5 8h7M12 8h1.5M2.5 11.5h2.5M7.5 11.5h6" />
+      <circle cx="7.5" cy="4.5" r="1.5" />
+      <circle cx="10.5" cy="8" r="1.5" />
+      <circle cx="6" cy="11.5" r="1.5" />
     </>
   ),
   close: <path d="M4 4l8 8M12 4l-8 8" />,

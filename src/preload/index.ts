@@ -40,3 +40,9 @@ const api: ForkfieldApi = {
 }
 
 contextBridge.exposeInMainWorld('forkfield', api)
+
+// Opt-in automation hook. Only present when launched with FORKFIELD_DEBUG=1;
+// the renderer uses it to expose a scripting bridge for the demo driver.
+if (process.env.FORKFIELD_DEBUG === '1') {
+  contextBridge.exposeInMainWorld('__ffdebug', true)
+}
