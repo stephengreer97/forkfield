@@ -9,6 +9,7 @@ import CommandPalette, { type PaletteItem } from './components/CommandPalette'
 import {
   autoTitle,
   buildBranchPrompt,
+  cleanResumeId,
   descendantIds,
   formatCost,
   formatTokens,
@@ -604,7 +605,8 @@ export default function App(): JSX.Element {
 
   // Adds an independent root to the existing canvas. Optionally resumes a
   // Claude session by id. Both paths prompt for the folder.
-  const addNewSession = useCallback(async (resumeSessionId?: string) => {
+  const addNewSession = useCallback(async (rawResume?: string) => {
+    const resumeSessionId = rawResume ? cleanResumeId(rawResume) : undefined
     const dir = await window.forkfield.chooseDirectory()
     if (!dir) return
     const node = useStore.getState().addRoot(dir, resumeSessionId ?? null)
@@ -857,12 +859,12 @@ export default function App(): JSX.Element {
         <PromptDialog
           title="Resume a session"
           label="Claude session id"
-          placeholder="paste the session id"
+          placeholder="session id (or paste the full claude --resume … command)"
           confirmLabel="Choose folder…"
           onCancel={() => setResumePrompt(false)}
           onSubmit={(id) => {
             setResumePrompt(false)
-            void addNewSession(id.trim())
+            void addNewSession(id)
           }}
         />
       )}

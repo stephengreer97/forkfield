@@ -23,6 +23,21 @@ export function childCount(nodes: CanvasNode[], parentId: string): number {
   return nodes.filter((n) => n.parentId === parentId).length
 }
 
+// Pull a session id out of whatever the user pasted into the resume field:
+// a bare id/title, or a whole "claude --resume <id>" command copied by mistake.
+export function cleanResumeId(raw: string): string {
+  let s = raw.trim()
+  const afterFlag = s.match(/(?:--resume|-r)\s+(.+)$/i)
+  if (afterFlag) s = afterFlag[1].trim()
+  s = s
+    .replace(/^claude\s+/i, '')
+    .replace(/^(?:-p|--print)\s+/i, '')
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+  const uuid = s.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
+  return uuid ? uuid[0] : s
+}
+
 // True if the node's title or any transcript text contains the (lowercased) query.
 export function nodeMatches(n: CanvasNode, q: string): boolean {
   if (n.title.toLowerCase().includes(q)) return true
