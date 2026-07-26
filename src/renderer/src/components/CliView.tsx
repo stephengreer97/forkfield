@@ -34,7 +34,6 @@ export default function CliView(props: {
   onInterrupt: (nodeId: string) => void
   onRespondPermission: (nodeId: string, requestId: string, allow: boolean) => void
   onShowDiff?: (nodeId: string) => void
-  onRetry?: (nodeId: string) => void
   onOpenEditor?: (nodeId: string) => void
   onPromote?: (nodeId: string) => void
   lineage?: { id: string; title: string }[]
@@ -430,7 +429,7 @@ export default function CliView(props: {
           <textarea
             ref={textareaRef}
             value={input}
-            placeholder="Message this node, or / for commands"
+            placeholder="Message this node… (Enter to send, Shift+Enter for a new line)"
             onChange={(e) => {
               setInput(e.target.value)
               setAcIndex(0)
@@ -499,27 +498,10 @@ export default function CliView(props: {
               }
             }}
           />
-          {thinking ? (
+          {thinking && (
             <button className="btn stop" onClick={() => props.onInterrupt(node.id)}>
               Stop (ctrl+c)
             </button>
-          ) : (
-            <>
-              {props.onRetry && node.turns.some((t) => t.role === 'assistant') && !input.trim() && (
-                <button
-                  className="btn ghost"
-                  title="Ask the last question again"
-                  onClick={() => props.onRetry!(node.id)}
-                >
-                  <Icon name="undo" size={14} />
-                  Retry
-                </button>
-              )}
-              <button className="btn primary" onClick={send} disabled={!input.trim()}>
-                <Icon name="send" size={14} />
-                Send
-              </button>
-            </>
           )}
         </div>
       </div>

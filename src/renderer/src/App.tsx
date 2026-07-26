@@ -489,25 +489,6 @@ export default function App(): JSX.Element {
     window.forkfield.interrupt(nodeId)
   }, [])
 
-  const retryTurn = useCallback(
-    (nodeId: string) => {
-      const node = useStore.getState().canvas?.nodes.find((n) => n.id === nodeId)
-      if (!node) return
-      let text: string | null = null
-      for (let i = node.turns.length - 1; i >= 0; i--) {
-        if (node.turns[i].role === 'user') {
-          text = node.turns[i].blocks
-            .map((b) => b.text)
-            .filter(Boolean)
-            .join('\n')
-          break
-        }
-      }
-      if (text) sendMessage(nodeId, text)
-    },
-    [sendMessage]
-  )
-
   const showDiff = useCallback((nodeId: string) => {
     const node = useStore.getState().canvas?.nodes.find((n) => n.id === nodeId)
     if (!node?.worktree) return
@@ -744,7 +725,6 @@ export default function App(): JSX.Element {
           onInterrupt={interrupt}
           onRespondPermission={respondPermission}
           onShowDiff={showDiff}
-          onRetry={retryTurn}
           onOpenEditor={openInEditor}
           onPromote={promoteBranch}
           lineage={lineage(canvas.nodes, openNode.id)}
