@@ -710,7 +710,7 @@ body,
   overflow-y: auto;
   padding: 18px;
   background: var(--panel);
-  font-size: calc(13px * var(--font-scale, 1));
+  font-size: calc(15px * var(--font-scale, 1));
 }
 .cli-hint {
   color: var(--muted);
@@ -766,7 +766,7 @@ body,
   margin-bottom: 16px;
 }
 .turn-role {
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--muted);
@@ -923,7 +923,7 @@ body,
   border-radius: 8px;
   padding: 8px 10px;
   font-family: inherit;
-  font-size: calc(13px * var(--font-scale, 1));
+  font-size: calc(15px * var(--font-scale, 1));
 }
 .cli-input textarea:focus {
   outline: none;
@@ -949,20 +949,30 @@ body,
 }
 .branch-row {
   display: flex;
+  align-items: flex-start;
   gap: 6px;
 }
-.branch-row input {
+.branch-row textarea {
   flex: 1 1 auto;
+  min-height: 32px;
+  max-height: 160px;
+  resize: none;
+  overflow-y: auto;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border-strong);
   border-radius: 6px;
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: 7px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
 }
-.branch-row input:focus {
+.branch-row textarea:focus {
   outline: none;
   border-color: var(--accent);
+}
+.branch-row .btn {
+  flex: 0 0 auto;
 }
 
 /* Unread indicator */
@@ -1515,9 +1525,9 @@ body,
 }
 .md-code code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: calc(13px * var(--font-scale, 1));
   white-space: pre;
-  color: #0f2540;
+  color: var(--text);
 }
 .md-h {
   font-weight: 700;

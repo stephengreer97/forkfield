@@ -50,7 +50,7 @@ export default function CliView(props: {
   const [acDismissed, setAcDismissed] = useState(false)
   const [histIndex, setHistIndex] = useState<number | null>(null)
   const transcriptRef = useRef<HTMLDivElement | null>(null)
-  const questionRef = useRef<HTMLInputElement | null>(null)
+  const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const lastSelRef = useRef<string>('')
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -101,6 +101,15 @@ export default function CliView(props: {
       el.style.height = Math.min(el.scrollHeight, 220) + 'px'
     }
   }, [input])
+
+  // Auto-grow the branch question box as it fills with text.
+  useEffect(() => {
+    const el = questionRef.current
+    if (el) {
+      el.style.height = 'auto'
+      el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+    }
+  }, [question, popover])
 
   // Auto scroll to bottom as the transcript grows.
   useEffect(() => {
@@ -525,13 +534,17 @@ export default function CliView(props: {
           <div className="branch-quote">“{popover.text.slice(0, 120)}
             {popover.text.length > 120 ? '…' : ''}”</div>
           <div className="branch-row">
-            <input
+            <textarea
               ref={questionRef}
               value={question}
+              rows={1}
               placeholder="Ask about this…  (use | to fan out)"
               onChange={(e) => setQuestion(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') submitBranch()
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  submitBranch()
+                }
                 if (e.key === 'Escape') setPopover(null)
               }}
             />
