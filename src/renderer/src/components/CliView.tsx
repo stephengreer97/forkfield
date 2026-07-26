@@ -52,6 +52,10 @@ export default function CliView(props: {
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const lastSelRef = useRef<string>('')
+  // The selection text the current fork-box draft belongs to. Lets a draft
+  // survive an accidental click-away and reappear when the same text is
+  // re-selected, while a different selection (or a completed fork) starts fresh.
+  const draftSelRef = useRef<string>('')
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const inputRef = useRef('')
   const stashRef = useRef<{ text: string; time: number } | null>(null)
@@ -188,7 +192,9 @@ export default function CliView(props: {
     const range0 = sel.getRangeAt(0)
     const rect = range0.getBoundingClientRect()
     const range = range0.cloneRange()
-    setQuestion('')
+    // Keep the draft only when re-selecting the exact same text.
+    if (text !== draftSelRef.current) setQuestion('')
+    draftSelRef.current = text
     setPopover({ text, turnIndex, x: rect.left, y: rect.bottom + 6 })
     // Keep the selection visibly highlighted (independent of the live
     // selection, which collapses when focus moves to the branch input).
@@ -217,6 +223,7 @@ export default function CliView(props: {
     props.onBranch(node.id, popover.turnIndex, popover.text, q)
     setPopover(null)
     setQuestion('')
+    draftSelRef.current = ''
     window.getSelection()?.removeAllRanges()
   }
 
@@ -233,6 +240,7 @@ export default function CliView(props: {
     props.onFanOut(node.id, popover.turnIndex, popover.text, parts)
     setPopover(null)
     setQuestion('')
+    draftSelRef.current = ''
     window.getSelection()?.removeAllRanges()
   }
 
@@ -299,7 +307,7 @@ export default function CliView(props: {
             {node.worktree && props.onShowDiff && (
               <button
                 className="btn tiny"
-                title="Show this branch's file changes"
+                title="Show this fork's file changes"
                 onClick={() => props.onShowDiff!(node.id)}
               >
                 <Icon name="diff" size={13} />
@@ -309,7 +317,7 @@ export default function CliView(props: {
             {node.worktree && props.onOpenEditor && (
               <button
                 className="btn tiny ghost icon-btn"
-                title="Open this branch's worktree in your editor"
+                title="Open this fork's worktree in your editor"
                 onClick={() => props.onOpenEditor!(node.id)}
               >
                 <Icon name="external" size={14} />
@@ -318,7 +326,7 @@ export default function CliView(props: {
             {node.worktree && props.onPromote && (
               <button
                 className="btn tiny"
-                title="Merge this branch's commits into the base branch"
+                title="Merge this fork's commits into the base branch"
                 onClick={() => props.onPromote!(node.id)}
               >
                 <Icon name="merge" size={13} />
@@ -339,7 +347,7 @@ export default function CliView(props: {
         </div>
 
         {node.seedSelection && (
-          <div className="cli-seed" title="This branch was forked from a highlighted selection">
+          <div className="cli-seed" title="This fork was made from a highlighted selection">
             forked from: “{node.seedSelection.slice(0, 200)}
             {node.seedSelection.length > 200 ? '…' : ''}”
           </div>
@@ -364,7 +372,7 @@ export default function CliView(props: {
                 This node is a Claude Code session running in <b>{node.workingDirectory}</b>.
                 <br />
                 <br />
-                Type a message below to start. Highlight any assistant text later to branch off it.
+                Type a message below to start. Highlight any assistant text later to fork off it.
               </div>
             )
           )}
@@ -531,12 +539,12 @@ export default function CliView(props: {
               }}
             />
             <button className="btn tiny primary" onClick={submitBranch} disabled={!question.trim()}>
-              Branch
+              Fork
             </button>
           </div>
           {props.onFanOut && fanCount > 1 && (
             <button className="btn tiny fanout" onClick={submitFanOut}>
-              Fan out into {fanCount} branches
+              Fan out into {fanCount} forks
             </button>
           )}
         </div>

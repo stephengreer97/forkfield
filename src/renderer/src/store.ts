@@ -247,7 +247,7 @@ export const useStore = create<Store>((set, get) => ({
       status: 'idle',
       turns: [],
       usage: emptyUsage(),
-      title: 'Branch',
+      title: 'Fork',
       unread: false
     }
     set({ canvas: { ...canvas, nodes: [...canvas.nodes, node] } })

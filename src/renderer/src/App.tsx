@@ -150,7 +150,7 @@ export default function App(): JSX.Element {
         const node = c.nodes.find((n) => n.id === e.nodeId)
         const cost = node ? formatCost(node.usage.costUsd) : ''
         const n = new Notification('Forkfield', {
-          body: `${node?.title ?? 'A branch'} finished${cost ? ` · ${cost}` : ''}`,
+          body: `${node?.title ?? 'A fork'} finished${cost ? ` · ${cost}` : ''}`,
           tag: e.nodeId
         })
         n.onclick = () => {
@@ -173,7 +173,7 @@ export default function App(): JSX.Element {
             kind: 'warn',
             message: `Spent ${formatCost(spent)}, past your ${formatCost(
               cap
-            )} cap. Running branches were stopped.`,
+            )} cap. Running forks were stopped.`,
             actionLabel: 'Settings',
             onAction: () => setSettingsOpen(true)
           })
@@ -278,7 +278,7 @@ export default function App(): JSX.Element {
     if (concurrentThinking() >= settings.maxConcurrent) {
       useStore.getState().pushToast({
         kind: 'warn',
-        message: `${settings.maxConcurrent} branches already running. Wait, or raise the limit.`,
+        message: `${settings.maxConcurrent} forks already running. Wait, or raise the limit.`,
         actionLabel: 'Settings',
         onAction: () => setSettingsOpen(true)
       })
@@ -330,7 +330,7 @@ export default function App(): JSX.Element {
         } else {
           useStore.getState().pushToast({
             kind: 'info',
-            message: 'Not a git repo, so this branch shares the parent folder.'
+            message: 'Not a git repo, so this fork shares the parent folder.'
           })
         }
       }
@@ -376,7 +376,7 @@ export default function App(): JSX.Element {
       if (concurrentThinking() + extra > settings.maxConcurrent) {
         useStore.getState().pushToast({
           kind: 'warn',
-          message: `That exceeds your limit of ${settings.maxConcurrent} concurrent branches.`,
+          message: `That exceeds your limit of ${settings.maxConcurrent} concurrent forks.`,
           actionLabel: 'Settings',
           onAction: () => setSettingsOpen(true)
         })
@@ -449,7 +449,7 @@ export default function App(): JSX.Element {
     const extra = snapshot.length - 1
     useStore.getState().pushToast({
       kind: 'info',
-      message: `Deleted ${title}${extra > 0 ? ` and ${extra} branch${extra === 1 ? '' : 'es'}` : ''}`,
+      message: `Deleted ${title}${extra > 0 ? ` and ${extra} fork${extra === 1 ? '' : 's'}` : ''}`,
       actionLabel: 'Undo',
       onAction: () => {
         window.clearTimeout(timer)
@@ -539,11 +539,11 @@ export default function App(): JSX.Element {
       if (!parent) return
       const children = c.nodes.filter((n) => n.parentId === parentId)
       const sections = children
-        .map((ch, i) => `## Branch ${i + 1}: ${ch.title}\n\n${lastAssistantText(ch)}`)
+        .map((ch, i) => `## Fork ${i + 1}: ${ch.title}\n\n${lastAssistantText(ch)}`)
         .join('\n\n')
       const prompt =
-        'I explored several branches from this point, each answering the same question a ' +
-        'different way. Here is the final result from each branch:\n\n' +
+        'I explored several forks from this point, each answering the same question a ' +
+        'different way. Here is the final result from each fork:\n\n' +
         sections +
         '\n\nSynthesize these into a single answer: note where they agree, call out where ' +
         'they disagree and which is stronger, and give a clear recommendation.'
@@ -778,8 +778,8 @@ export default function App(): JSX.Element {
           title="Delete node"
           message={
             confirmDelete.count > 0
-              ? `This deletes the node and its ${confirmDelete.count} descendant branch${
-                  confirmDelete.count === 1 ? '' : 'es'
+              ? `This deletes the node and its ${confirmDelete.count} descendant fork${
+                  confirmDelete.count === 1 ? '' : 's'
                 }. This cannot be undone.`
               : 'This deletes the node. This cannot be undone.'
           }
@@ -791,8 +791,8 @@ export default function App(): JSX.Element {
       )}
       {confirmPromote && (
         <ConfirmDialog
-          title="Promote branch"
-          message="This merges this branch's commits into the branch checked out in the main repo folder. Make sure that folder has no uncommitted work you might lose."
+          title="Promote fork"
+          message="This merges this fork's commits into the branch checked out in the main repo folder. Make sure that folder has no uncommitted work you might lose."
           confirmLabel="Merge"
           onConfirm={() => doPromote(confirmPromote.nodeId)}
           onCancel={() => setConfirmPromote(null)}
@@ -969,7 +969,7 @@ function CollectDialog(props: {
           {props.branches.map((ch, i) => (
             <div key={ch.id} className="collect-item">
               <div className="collect-item-title">
-                Branch {i + 1}: {ch.title}
+                Fork {i + 1}: {ch.title}
                 <span className={`cli-status status-${ch.status}`}>{ch.status}</span>
               </div>
               <div className="collect-item-text">{lastAssistantText(ch)}</div>
@@ -981,7 +981,7 @@ function CollectDialog(props: {
             Close
           </button>
           <button className="btn primary" onClick={props.onMerge}>
-            Merge into new branch
+            Merge into new fork
           </button>
         </div>
       </div>
@@ -1513,7 +1513,7 @@ function SettingsDialog(props: {
               <option value="haiku">Haiku</option>
             </select>
           </SettingsRow>
-          <SettingsRow label="Max concurrent branches">
+          <SettingsRow label="Max concurrent forks">
             <input
               type="number"
               min={1}
@@ -1553,7 +1553,7 @@ function SettingsDialog(props: {
               <option value="1.3">Larger</option>
             </select>
           </SettingsRow>
-          <SettingsRow label="Notify when a background branch finishes">
+          <SettingsRow label="Notify when a background fork finishes">
             <input
               type="checkbox"
               checked={s.notifyOnComplete}
@@ -1567,7 +1567,7 @@ function SettingsDialog(props: {
               onChange={(e) => set({ confirmDelete: e.target.checked })}
             />
           </SettingsRow>
-          <SettingsRow label="Enter the new node when branching">
+          <SettingsRow label="Enter the new node when forking">
             <input
               type="checkbox"
               checked={s.switchOnBranch}
@@ -1582,18 +1582,18 @@ function SettingsDialog(props: {
             />
           </SettingsRow>
           <SettingsRow
-            label="Branch isolation"
-            hint="Worktree gives each branch its own checkout in a git repo"
+            label="Fork isolation"
+            hint="Worktree gives each fork its own checkout in a git repo"
           >
             <select
               value={s.isolation}
               onChange={(e) => set({ isolation: e.target.value as Isolation })}
             >
               <option value="shared">Shared folder</option>
-              <option value="worktree">Git worktree per branch</option>
+              <option value="worktree">Git worktree per fork</option>
             </select>
           </SettingsRow>
-          <SettingsRow label="Editor command" hint="Used by “Open in editor” on worktree branches">
+          <SettingsRow label="Editor command" hint="Used by “Open in editor” on worktree forks">
             <input
               type="text"
               className="config-select editor-cmd"
@@ -1648,10 +1648,11 @@ function EmptyCanvasHint(props: { onNewRoot: () => void }): JSX.Element {
           <rect x="134" y="16" width="30" height="28" rx="6" />
           <rect x="134" y="76" width="30" height="28" rx="6" />
         </svg>
-        <h2>Start a branching session</h2>
+        <h2>Start a forking session</h2>
         <p>
           A root node is a full Claude Code session in a folder you choose. Highlight any part of a
-          response to fork a branch that inherits the context, and run branches side by side.
+          response to fork a new line of inquiry that inherits the context, and run forks side by
+          side.
         </p>
         <button className="btn primary lg" onClick={props.onNewRoot}>
           <Icon name="plus" size={16} />
