@@ -4,6 +4,7 @@ import type {
   CanvasState,
   SessionEvent,
   StartTurnParams,
+  RendererError,
   Worktree
 } from '../shared/types'
 
@@ -36,7 +37,8 @@ const api: ForkfieldApi = {
   gitDiff: (wt: Worktree) => ipcRenderer.invoke('git:diff', wt),
   promoteWorktree: (wt: Worktree) => ipcRenderer.invoke('git:promote', wt),
   openInEditor: (command: string, path: string) =>
-    ipcRenderer.invoke('editor:open', { command, path })
+    ipcRenderer.invoke('editor:open', { command, path }),
+  reportError: (err: RendererError) => ipcRenderer.send('renderer:error', err)
 }
 
 contextBridge.exposeInMainWorld('forkfield', api)

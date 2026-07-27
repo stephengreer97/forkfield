@@ -31,8 +31,14 @@ node node_modules/electron-vite/bin/electron-vite.js build >/dev/null
 
 LOG="$REPO/forkfield.log"
 echo "Launching Forkfield in the background..."
+# Append rather than truncate: a relaunch after a crash used to overwrite the
+# very output that explained it. A banner separates runs.
+{
+  echo
+  echo "===== launch $(date '+%Y-%m-%d %H:%M:%S') ====="
+} >>"$LOG"
 # --no-sandbox avoids the Chromium SUID-sandbox error common under WSL.
 # setsid + & detaches from this terminal so the app keeps running and the
 # shell prompt returns immediately. Logs go to the file above.
-setsid node_modules/electron/dist/electron --no-sandbox . >"$LOG" 2>&1 < /dev/null &
+setsid node_modules/electron/dist/electron --no-sandbox . >>"$LOG" 2>&1 < /dev/null &
 echo "Forkfield is running in the background. Logs: $LOG"

@@ -4,12 +4,17 @@ import { existsSync, readdirSync, readFileSync, mkdirSync, copyFileSync } from '
 import { randomUUID } from 'crypto'
 import type { ContentBlock, Turn } from '../shared/types'
 
+// Resolve the Claude config directory, respecting CLAUDE_CONFIG_DIR env var.
+function claudeConfigDir(): string {
+  return process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
+}
+
 // Claude Code stores each session as a JSONL transcript under
-// ~/.claude/projects/<encoded-cwd>/<session-id>.jsonl. Session ids are unique,
+// <CLAUDE_CONFIG_DIR>/projects/<encoded-cwd>/<session-id>.jsonl. Session ids are unique,
 // so we search every project dir for the file rather than guessing the
 // cwd encoding.
 function findSessionFile(sessionId: string): string | null {
-  const base = join(homedir(), '.claude', 'projects')
+  const base = join(claudeConfigDir(), 'projects')
   if (!existsSync(base)) return null
   let dirs: string[]
   try {
@@ -36,7 +41,7 @@ function encodeCwd(cwd: string): string {
 // resolves it there. No-op when the file is already present (shared mode, or
 // after the first branch turn).
 export function ensureSessionInCwd(cwd: string, sessionId: string): void {
-  const dir = join(homedir(), '.claude', 'projects', encodeCwd(cwd))
+  const dir = join(claudeConfigDir(), 'projects', encodeCwd(cwd))
   const dest = join(dir, `${sessionId}.jsonl`)
   if (existsSync(dest)) return
   const src = findSessionFile(sessionId)

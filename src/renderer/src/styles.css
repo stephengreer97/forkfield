@@ -1720,6 +1720,85 @@ body,
   font-weight: 600;
 }
 
+/* Error boundary fallback */
+.crash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-5);
+  background: var(--bg);
+  z-index: 200;
+}
+.crash-box {
+  width: 100%;
+  max-width: 560px;
+  padding: var(--sp-5);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-top: 3px solid var(--red);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-3);
+}
+.crash-title {
+  margin: 0 0 var(--sp-2);
+  font-size: 17px;
+  font-weight: 600;
+}
+.crash-msg {
+  margin: 0 0 var(--sp-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: var(--red);
+  word-break: break-word;
+}
+.crash-hint {
+  margin: 0 0 var(--sp-4);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.crash-stack {
+  max-height: 220px;
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3);
+  overflow: auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+.crash-actions {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+}
+.crash-btn {
+  padding: 6px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-1);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.crash-btn:hover {
+  background: var(--panel-3);
+}
+.crash-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent-strong);
+  color: #ffffff;
+}
+.crash-btn-primary:hover {
+  background: var(--accent-strong);
+}
+
 /* Persistent branch-selection highlight (CSS Custom Highlight API) */
 ::highlight(forkfield-sel) {
   background-color: #2f6fed;

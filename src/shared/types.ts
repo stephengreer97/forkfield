@@ -140,6 +140,15 @@ export type SessionEvent =
   | { type: 'slash_commands'; nodeId: string; commands: string[] }
   | { type: 'error'; nodeId: string; message: string }
 
+export type RendererErrorKind = 'render' | 'uncaught' | 'unhandled-rejection'
+
+export interface RendererError {
+  kind: RendererErrorKind
+  message: string
+  stack: string | null
+  componentStack: string | null
+}
+
 export interface ForkfieldApi {
   chooseDirectory(): Promise<string | null>
   loadCanvas(): Promise<CanvasState | null>
@@ -158,4 +167,5 @@ export interface ForkfieldApi {
   gitDiff(wt: Worktree): Promise<string>
   promoteWorktree(wt: Worktree): Promise<{ ok: boolean; message: string }>
   openInEditor(command: string, path: string): Promise<{ ok: boolean; message: string }>
+  reportError(err: RendererError): void
 }

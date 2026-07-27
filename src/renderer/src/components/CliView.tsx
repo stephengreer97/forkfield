@@ -118,10 +118,24 @@ export default function CliView(props: {
     }
   }, [question, popover])
 
-  // Auto scroll to bottom as the transcript grows.
+  // Track whether the user is scrolled to (near) the bottom so we don't yank
+  // them back down when they scroll up to read while Claude is generating.
   useEffect(() => {
     const el = transcriptRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el) return
+    const onScroll = (): void => {
+      const threshold = 50
+      const atBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < threshold
+      atBottomRef.current = atBottom
+    }
+    el.addEventListener('scroll', onScroll)
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Auto scroll to bottom as the transcript grows, but only if already there.
+  useEffect(() => {
+    const el = transcriptRef.current
+    if (el && atBottomRef.current) el.scrollTop = el.scrollHeight
   }, [node.turns])
 
   // ctrl+c interrupts a thinking node.

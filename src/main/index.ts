@@ -4,10 +4,17 @@ import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { SessionManager } from './sessions'
 import { loadCanvas, saveCanvas } from './persistence'
+import { recordRendererError } from './errorlog'
 import { loadSessionHistory } from './history'
 import { spawn } from 'child_process'
 import { isGitRepo, createWorktree, removeWorktree, gitDiff, promoteWorktree } from './git'
-import type { SessionEvent, StartTurnParams, CanvasState, Worktree } from '../shared/types'
+import type {
+  SessionEvent,
+  StartTurnParams,
+  CanvasState,
+  RendererError,
+  Worktree
+} from '../shared/types'
 
 let win: BrowserWindow | null = null
 
@@ -114,7 +121,11 @@ ipcMain.handle('dialog:chooseDirectory', async () => {
 ipcMain.handle('canvas:load', async () => loadCanvas())
 
 ipcMain.handle('canvas:save', async (_e, state: CanvasState) => {
-  saveCanvas(state)
+  await saveCanvas(state)
+})
+
+ipcMain.on('renderer:error', (_e, err: RendererError) => {
+  recordRendererError(err)
 })
 
 ipcMain.handle('session:startTurn', async (_e, params: StartTurnParams) => {
