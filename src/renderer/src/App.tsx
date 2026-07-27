@@ -105,6 +105,29 @@ function concurrentThinking(): number {
   return c.nodes.filter((n) => n.status === 'thinking' || n.status === 'awaiting_permission').length
 }
 
+// Resolve once a node has produced its first assistant token (so its prefill,
+// which writes the shared context to the prompt cache, is done), or when it
+// finishes/errors, or after a timeout so we never hang.
+function waitForFirstToken(nodeId: string, timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    const t0 = Date.now()
+    const check = (): void => {
+      const node = useStore.getState().canvas?.nodes.find((n) => n.id === nodeId)
+      const hasToken = !!node?.turns.some(
+        (t) => t.role === 'assistant' && t.blocks.some((b) => b.kind === 'text' && !!b.text)
+      )
+      const settled = node?.status === 'complete' || node?.status === 'error'
+      if (hasToken || settled || Date.now() - t0 > timeoutMs) {
+        // Small buffer so the cache entry is committed before followers read it.
+        setTimeout(resolve, 400)
+        return
+      }
+      setTimeout(check, 150)
+    }
+    check()
+  })
+}
+
 export default function App(): JSX.Element {
   const canvas = useStore((s) => s.canvas)
   const openNodeId = useStore((s) => s.openNodeId)
@@ -451,8 +474,18 @@ export default function App(): JSX.Element {
       const qs = questions.map((q) => q.trim()).filter(Boolean)
       if (qs.length === 0) return
       if (overCap(qs.length)) return
-      // Fan-out always runs in the background: you can't enter N nodes at once.
-      for (const q of qs) void spawnBranch(parentId, turnIndex, selection, q)
+      // Cache-aware fan-out: launch the first fork alone so it writes the shared
+      // parent context into the server-side prompt cache, wait until it starts
+      // responding (prefill done = cache written), then release the rest. They
+      // read that cache instead of each re-writing the same big context.
+      void (async () => {
+        const first = await spawnBranch(parentId, turnIndex, selection, qs[0])
+        if (!first || qs.length === 1) return
+        await waitForFirstToken(first.id, 25000)
+        for (let i = 1; i < qs.length; i++) {
+          void spawnBranch(parentId, turnIndex, selection, qs[i])
+        }
+      })()
     },
     [overCap, spawnBranch]
   )
