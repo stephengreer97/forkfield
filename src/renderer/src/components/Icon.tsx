@@ -23,6 +23,7 @@ export type IconName =
   | 'check'
   | 'alert'
   | 'trash'
+  | 'copy'
 
 const PATHS: Record<IconName, JSX.Element> = {
   settings: (
@@ -94,7 +95,13 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M8 6.5v3M8 11.4v.1" />
     </>
   ),
-  trash: <path d="M3.5 4.5h9M6 4.5V3h4v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" />
+  trash: <path d="M3.5 4.5h9M6 4.5V3h4v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" />,
+  copy: (
+    <>
+      <rect x="4.5" y="6" width="6" height="6.5" rx="1" />
+      <rect x="5.5" y="3.5" width="6" height="6.5" rx="1" />
+    </>
+  )
 }
 
 export default function Icon(props: {

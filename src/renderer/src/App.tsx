@@ -156,6 +156,7 @@ export default function App(): JSX.Element {
   const [confirmPromote, setConfirmPromote] = useState<{ nodeId: string } | null>(null)
   const [compareOpen, setCompareOpen] = useState(false)
   const [broadcastOpen, setBroadcastOpen] = useState(false)
+  const [nodeInfo, setNodeInfo] = useState<{ nodeId: string } | null>(null)
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(() =>
     localStorage.getItem('forkfield:file')
   )
@@ -835,6 +836,11 @@ export default function App(): JSX.Element {
             setMenu(null)
             setTagPrompt({ nodeId: id })
           }}
+          onInfo={() => {
+            const id = menu.nodeId
+            setMenu(null)
+            setNodeInfo({ nodeId: id })
+          }}
           onDelete={() => {
             const id = menu.nodeId
             setMenu(null)
@@ -880,6 +886,21 @@ export default function App(): JSX.Element {
             setTagPrompt(null)
           }}
         />
+      )}
+      {nodeInfo && canvas && (
+        (() => {
+          const n = canvas.nodes.find((x) => x.id === nodeInfo.nodeId)
+          return n ? (
+            <NodeInfoDialog
+              node={n}
+              onRename={(newTitle) => {
+                useStore.getState().setNodeTitle(nodeInfo.nodeId, newTitle)
+                setNodeInfo(null)
+              }}
+              onCancel={() => setNodeInfo(null)}
+            />
+          ) : null
+        })()
       )}
       {compareOpen && (
         <CompareDialog nodes={canvas.nodes} onClose={() => setCompareOpen(false)} />
@@ -1287,6 +1308,94 @@ function PromptDialog(props: {
   )
 }
 
+function NodeInfoDialog(props: {
+  node: CanvasNode
+  onRename: (newTitle: string) => void
+  onCancel: () => void
+}): JSX.Element {
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [newTitle, setNewTitle] = useState(props.node.title)
+  const copy = (text: string) => navigator.clipboard.writeText(text)
+
+  return (
+    <div
+      className="confirm-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) props.onCancel()
+      }}
+    >
+      <div className="confirm-dialog">
+        <h3>Node info</h3>
+        {isRenaming ? (
+          <>
+            <label className="prompt-label">Rename node</label>
+            <input
+              autoFocus
+              className="prompt-input"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newTitle.trim()) {
+                  props.onRename(newTitle)
+                  setIsRenaming(false)
+                }
+                if (e.key === 'Escape') setIsRenaming(false)
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <div className="info-row">
+              <span className="info-label">Session ID:</span>
+              <div className="info-value">
+                <span className="info-text">{props.node.sessionId || '(not yet created)'}</span>
+                {props.node.sessionId && (
+                  <button className="info-copy" title="Copy" onClick={() => copy(props.node.sessionId!)}>
+                    <Icon name="copy" size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Folder:</span>
+              <div className="info-value">
+                <span className="info-text">{props.node.workingDirectory}</span>
+                <button className="info-copy" title="Copy" onClick={() => copy(props.node.workingDirectory)}>
+                  <Icon name="copy" size={14} />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+        <div className="confirm-actions">
+          <button className="btn" onClick={props.onCancel}>
+            {isRenaming ? 'Cancel' : 'Close'}
+          </button>
+          {!isRenaming && (
+            <button className="btn primary" onClick={() => setIsRenaming(true)}>
+              Rename…
+            </button>
+          )}
+          {isRenaming && (
+            <button
+              className="btn primary"
+              disabled={!newTitle.trim()}
+              onClick={() => {
+                if (newTitle.trim()) {
+                  props.onRename(newTitle)
+                  setIsRenaming(false)
+                }
+              }}
+            >
+              Rename
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function NodeMenu(props: {
   x: number
   y: number
@@ -1300,6 +1409,7 @@ function NodeMenu(props: {
   onToggleCollapse: () => void
   onCollectFindings: () => void
   onAddTag: () => void
+  onInfo: () => void
   onDelete: () => void
   onClose: () => void
 }): JSX.Element {
@@ -1340,6 +1450,9 @@ function NodeMenu(props: {
         </button>
         <button className="menu-item" onClick={props.onAddTag}>
           Add tag…
+        </button>
+        <button className="menu-item" onClick={props.onInfo}>
+          Info…
         </button>
         <div className="menu-sep" />
         <button className="menu-item danger" onClick={props.onDelete}>

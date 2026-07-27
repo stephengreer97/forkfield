@@ -1630,6 +1630,60 @@ body,
   border-color: var(--accent);
 }
 
+/* Node info dialog */
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px;
+  background: var(--panel-2);
+  border-radius: 6px;
+}
+.info-label {
+  flex: 0 0 80px;
+  font-weight: 500;
+  color: var(--text);
+}
+.info-value {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.info-text {
+  flex: 1 1 auto;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.info-copy {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.info-copy:hover {
+  background: var(--panel);
+  border-color: var(--accent);
+}
+.info-copy:active {
+  transform: scale(0.95);
+}
+
 /* Empty-canvas hint (blank canvas, prompt to click New root) */
 .empty-hint {
   position: fixed;
