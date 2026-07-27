@@ -149,6 +149,14 @@ export interface RendererError {
   componentStack: string | null
 }
 
+export type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error'
+
+export interface UpdateState {
+  status: UpdateStatus
+  version?: string
+  error?: string
+}
+
 export interface ForkfieldApi {
   chooseDirectory(): Promise<string | null>
   loadCanvas(): Promise<CanvasState | null>
@@ -161,11 +169,15 @@ export interface ForkfieldApi {
   openFile(): Promise<{ path: string; canvas: CanvasState } | null>
   onMenu(cb: (action: string) => void): () => void
   onSessionEvent(cb: (event: SessionEvent) => void): () => void
+  onUpdaterStatus(cb: (state: UpdateState) => void): () => void
   isGitRepo(dir: string): Promise<boolean>
   createWorktree(baseDir: string, nodeId: string): Promise<Worktree | null>
   removeWorktree(wt: Worktree): Promise<void>
   gitDiff(wt: Worktree): Promise<string>
   promoteWorktree(wt: Worktree): Promise<{ ok: boolean; message: string }>
   openInEditor(command: string, path: string): Promise<{ ok: boolean; message: string }>
+  getUpdateStatus(): Promise<UpdateState>
+  checkForUpdates(): Promise<void>
+  quitAndInstall(): void
   reportError(err: RendererError): void
 }

@@ -6,6 +6,7 @@ import { SessionManager } from './sessions'
 import { loadCanvas, saveCanvas } from './persistence'
 import { recordRendererError } from './errorlog'
 import { loadSessionHistory } from './history'
+import { setupUpdater } from './updater'
 import { spawn } from 'child_process'
 import { isGitRepo, createWorktree, removeWorktree, gitDiff, promoteWorktree } from './git'
 import type {
@@ -98,6 +99,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     buildMenu()
     createWindow()
+    if (win) setupUpdater(win)
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
     })

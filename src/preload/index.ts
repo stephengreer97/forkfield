@@ -5,7 +5,8 @@ import type {
   SessionEvent,
   StartTurnParams,
   RendererError,
-  Worktree
+  Worktree,
+  UpdateState
 } from '../shared/types'
 
 const api: ForkfieldApi = {
@@ -38,6 +39,14 @@ const api: ForkfieldApi = {
   promoteWorktree: (wt: Worktree) => ipcRenderer.invoke('git:promote', wt),
   openInEditor: (command: string, path: string) =>
     ipcRenderer.invoke('editor:open', { command, path }),
+  onUpdaterStatus: (cb: (state: UpdateState) => void) => {
+    const listener = (_: unknown, state: UpdateState): void => cb(state)
+    ipcRenderer.on('updater:status', listener)
+    return () => ipcRenderer.removeListener('updater:status', listener)
+  },
+  getUpdateStatus: () => ipcRenderer.invoke('updater:getStatus'),
+  checkForUpdates: () => ipcRenderer.invoke('updater:checkForUpdates'),
+  quitAndInstall: () => ipcRenderer.send('updater:quitAndInstall'),
   reportError: (err: RendererError) => ipcRenderer.send('renderer:error', err)
 }
 

@@ -5,6 +5,7 @@ import Canvas from './components/Canvas'
 import CliView from './components/CliView'
 import Toaster from './components/Toaster'
 import Icon from './components/Icon'
+import UpdateBanner from './components/UpdateBanner'
 import CommandPalette, { type PaletteItem } from './components/CommandPalette'
 import {
   autoTitle,
@@ -753,6 +754,7 @@ export default function App(): JSX.Element {
 
   return (
     <div className="app">
+      <UpdateBanner />
       <TopBar
         totalTokens={total.tokens}
         totalCost={total.cost}

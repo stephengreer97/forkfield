@@ -2,6 +2,13 @@ appId: com.forkfield.app
 productName: Forkfield
 directories:
   output: dist
+# Publish to GitHub Releases. Requires GITHUB_TOKEN env var on CI.
+# Token needs repo:public_repo permission for public repos (classic token).
+publish:
+  - provider: github
+    owner: sgreer  # will auto-detect from git remote if available
+    repo: forkfield
+    releaseType: release  # or 'draft' for testing
 files:
   - out/**/*
   - package.json
@@ -25,3 +32,16 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   perMachine: false
+mac:
+  target:
+    - dmg
+    - zip
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # Requires Apple Developer account for code signing and notarization.
+  # Set via env: APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID (or use --sign-and-notarize CLI flag).
+  notarize: false  # Set to true once you have the credentials wired
+linux:
+  target:
+    - AppImage
+    - deb
+  artifactName: ${productName}-${version}-${arch}.${ext}

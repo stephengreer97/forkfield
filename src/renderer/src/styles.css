@@ -1858,3 +1858,62 @@ body,
   background-color: #2f6fed;
   color: #ffffff;
 }
+
+/* Update banner */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--accent-weak);
+  border-bottom: 1px solid var(--accent);
+  font-size: calc(13px * var(--font-scale, 1));
+  animation: slideDown var(--dur-2) var(--ease);
+}
+.update-banner.available {
+  background: var(--yellow-weak);
+  border-bottom-color: var(--yellow);
+}
+.update-banner.error {
+  background: var(--red-weak);
+  border-bottom-color: var(--red);
+}
+.update-content {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+  margin: 0 auto;
+  max-width: 1400px;
+  width: 100%;
+}
+.update-icon {
+  flex: 0 0 auto;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+}
+.update-banner.available .update-icon {
+  color: var(--yellow);
+}
+.update-banner.error .update-icon {
+  color: var(--red);
+}
+.update-text {
+  flex: 1;
+  color: var(--text);
+}
+.update-action {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
