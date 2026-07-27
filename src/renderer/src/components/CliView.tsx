@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { JSX, MouseEvent as ReactMouseEvent } from 'react'
 import type { CanvasNode, ContentBlock, Turn } from '../../../shared/types'
 import type { PendingPermission } from '../store'
-import { formatCost, formatTokens } from '../util'
+import { formatCost, formatTokens, usageBreakdown } from '../util'
 import { Markdown } from './Markdown'
 import Icon from './Icon'
 
@@ -49,6 +49,10 @@ export default function CliView(props: {
   const [acDismissed, setAcDismissed] = useState(false)
   const [histIndex, setHistIndex] = useState<number | null>(null)
   const transcriptRef = useRef<HTMLDivElement | null>(null)
+  // Whether the transcript is scrolled to (near) the bottom. We only auto-scroll
+  // on new content when the user is already at the bottom, so scrolling up to
+  // read while Claude is generating isn't yanked back down.
+  const atBottomRef = useRef(true)
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const lastSelRef = useRef<string>('')
@@ -297,7 +301,7 @@ export default function CliView(props: {
             <span className="usage-pill" title="Model for this node (change with /model)">
               {node.model ?? 'default'}
             </span>
-            <span className="usage-pill">
+            <span className="usage-pill" title={usageBreakdown(node.usage)}>
               {formatTokens(tokens)} tok · {formatCost(node.usage.costUsd)}
             </span>
             <span className={`cli-status status-${node.status}`}>

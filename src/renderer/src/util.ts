@@ -1,4 +1,4 @@
-import type { CanvasNode } from '../../shared/types'
+import type { CanvasNode, Usage } from '../../shared/types'
 
 export function descendantIds(nodes: CanvasNode[], rootId: string): string[] {
   const childrenOf = new Map<string, string[]>()
@@ -120,6 +120,22 @@ export function formatCost(usd: number): string {
   if (usd <= 0) return '$0.00'
   if (usd < 0.01) return '<$0.01'
   return '$' + usd.toFixed(2)
+}
+
+// The raw "tokens" number is dominated by cache reads, which are near-free and
+// counted at a fraction of the rate. This spells out where the tokens actually
+// went so a huge number doesn't read as a huge bill.
+export function usageBreakdown(u: Usage): string {
+  const f = (n: number): string => n.toLocaleString('en-US')
+  const total = u.input + u.output + u.cacheWrite + u.cacheRead
+  return [
+    `Output (generated): ${f(u.output)}`,
+    `Fresh input: ${f(u.input)}`,
+    `Cache write (1.25x): ${f(u.cacheWrite)}`,
+    `Cache read (~0.1x, near-free): ${f(u.cacheRead)}`,
+    `Total counted: ${f(total)}`,
+    `Cost: ${formatCost(u.costUsd)}`
+  ].join('\n')
 }
 
 // Condense a prompt into a short node title: first non-empty line, stripped of

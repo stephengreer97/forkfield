@@ -2,7 +2,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { JSX } from 'react'
 import type { CanvasNode, NodeStatus } from '../../../shared/types'
 import { useStore, type PendingPermission } from '../store'
-import { formatCost, formatTokens, nodePreview } from '../util'
+import { formatCost, formatTokens, nodePreview, usageBreakdown } from '../util'
 
 export interface BranchNodeData {
   node: CanvasNode
@@ -108,7 +108,7 @@ export default function NodeCard({ data }: NodeProps): JSX.Element {
       <div className="node-foot">
         {n.model && <span className="node-model">{n.model}</span>}
         {n.worktree && <span className="node-model wt">worktree</span>}
-        <span className="node-usage">
+        <span className="node-usage" title={usageBreakdown(n.usage)}>
           {formatTokens(tokens)} tok · {formatCost(n.usage.costUsd)}
         </span>
       </div>

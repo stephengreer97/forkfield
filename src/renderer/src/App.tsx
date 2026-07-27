@@ -16,7 +16,8 @@ import {
   lastAssistantText,
   lineage,
   nodeMatches,
-  tidyLayout
+  tidyLayout,
+  usageBreakdown
 } from './util'
 import {
   KEY_COMMANDS,
@@ -31,7 +32,8 @@ import type {
   CanvasSettings,
   Isolation,
   PermissionMode,
-  ThemePref
+  ThemePref,
+  Usage
 } from '../../shared/types'
 
 function getNode(id: string): CanvasNode | undefined {
@@ -48,6 +50,26 @@ const MODEL_OPTIONS: { label: string; value: string | null; desc: string }[] = [
 // Interactive built-in commands that the SDK cannot run for us, so Forkfield
 // handles them natively. Everything else passes through to the SDK.
 const NATIVE_COMMANDS = new Set(['model', 'clear', 'config', 'login'])
+
+// Interactive-only Claude Code commands. They need the terminal TUI (a pairing
+// flow, a picker, an editor mode) and do nothing useful through the headless
+// SDK, so Forkfield explains that instead of silently sending them.
+const TERMINAL_ONLY = new Set([
+  'remote-control',
+  'vim',
+  'terminal-setup',
+  'doctor',
+  'bug',
+  'ide',
+  'install-github-app',
+  'upgrade',
+  'logout',
+  'mcp',
+  'agents',
+  'hooks',
+  'statusline',
+  'output-style'
+])
 
 // Auto-router v1: pick a model from a cheap heuristic on the prompt.
 function routeModel(text: string): string {
@@ -98,6 +120,7 @@ export default function App(): JSX.Element {
   const [confirmClear, setConfirmClear] = useState<{ nodeId: string } | null>(null)
   const [configDialog, setConfigDialog] = useState<{ nodeId: string } | null>(null)
   const [loginInfo, setLoginInfo] = useState(false)
+  const [terminalCmd, setTerminalCmd] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [diffView, setDiffView] = useState<{ title: string; text: string } | null>(null)
   const [collect, setCollect] = useState<{ nodeId: string } | null>(null)
@@ -272,6 +295,11 @@ export default function App(): JSX.Element {
       } else if (name === 'login') {
         setLoginInfo(true)
       }
+      return
+    }
+    if (cmd && TERMINAL_ONLY.has(cmd[1].toLowerCase())) {
+      useStore.getState().appendUserTurn(nodeId, text)
+      setTerminalCmd(cmd[1].toLowerCase())
       return
     }
     if (overSpendCap()) return
@@ -624,14 +652,20 @@ export default function App(): JSX.Element {
     )
   }
 
-  const total = canvas.nodes.reduce(
+  const totalUsage = canvas.nodes.reduce(
     (acc, n) => ({
-      tokens:
-        acc.tokens + n.usage.input + n.usage.output + n.usage.cacheRead + n.usage.cacheWrite,
-      cost: acc.cost + n.usage.costUsd
+      input: acc.input + n.usage.input,
+      output: acc.output + n.usage.output,
+      cacheWrite: acc.cacheWrite + n.usage.cacheWrite,
+      cacheRead: acc.cacheRead + n.usage.cacheRead,
+      costUsd: acc.costUsd + n.usage.costUsd
     }),
-    { tokens: 0, cost: 0 }
+    { input: 0, output: 0, cacheWrite: 0, cacheRead: 0, costUsd: 0 }
   )
+  const total = {
+    tokens: totalUsage.input + totalUsage.output + totalUsage.cacheRead + totalUsage.cacheWrite,
+    cost: totalUsage.costUsd
+  }
 
   const openNode = openNodeId ? canvas.nodes.find((n) => n.id === openNodeId) ?? null : null
 
@@ -688,6 +722,7 @@ export default function App(): JSX.Element {
       <TopBar
         totalTokens={total.tokens}
         totalCost={total.cost}
+        totalUsage={totalUsage}
         search={search}
         onSearch={(v) => {
           setSearch(v)
@@ -1319,6 +1354,7 @@ function ConfirmDialog(props: {
 function TopBar(props: {
   totalTokens: number
   totalCost: number
+  totalUsage: Usage
   search: string
   onSearch: (q: string) => void
   matchCount: number
@@ -1387,7 +1423,10 @@ function TopBar(props: {
         <button className="btn icon-btn" title="Tidy layout" onClick={props.onTidy}>
           <Icon name="tidy" size={15} />
         </button>
-        <span className="usage-pill" title="Total tokens and cost across all nodes">
+        <span
+          className="usage-pill"
+          title={'Whole canvas, all nodes, all time:\n' + usageBreakdown(props.totalUsage)}
+        >
           {formatTokens(props.totalTokens)} tok · {formatCost(props.totalCost)}
         </span>
         <button className="btn" onClick={props.onNewRoot}>
