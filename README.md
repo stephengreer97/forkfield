@@ -16,12 +16,15 @@ See [SPEC.md](./SPEC.md) for the full technical design.
 - Infinite canvas: pan, zoom, drag, minimap
 - Pick a folder to open the root node in
 - Each node is a live Claude Code session you can keep chatting with (the 90 percent CLI overlay)
-- Highlight any assistant text and branch off it (forks the parent session with the selection as context)
-- Concurrent branches, each streaming independently
+- Highlight any assistant text and fork off it (creates a new node with the selection as context)
+- Concurrent forks, each streaming independently
 - Node glow states: blue pulse while thinking, yellow for a pending permission, green when done
 - Approve or deny tool permissions per node, plus a global skip-permissions toggle
 - ctrl+c interrupts a thinking node
-- Right click a node to delete it and all descendants, with a confirm
+- Right click a node for info (session ID, working folder, rename) or delete it and all descendants
+- Sticky fork draft: type a follow-up question, click away, re-highlight the same text to restore your draft
+- Respectful scroll: scroll up to read while Claude is generating; won't be yanked back to the bottom
+- Terminal-only slash commands (`/remote-control`, `/vim`, etc.) show a helpful message instead of failing silently
 - Per-node and total token and cost readouts
 - Canvas persists and reloads across restarts
 
