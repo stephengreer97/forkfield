@@ -32,13 +32,15 @@ jobs:
 
       - name: Build Electron (Windows)
         if: runner.os == 'Windows'
-        run: npm run dist:win
+        run: npx electron-builder --win --publish=never
 
       - name: Upload Windows release
         if: runner.os == 'Windows'
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/Forkfield-*-x64.zip,dist/Forkfield Setup-*.exe
+          files: |
+            dist/Forkfield-*.zip
+            dist/Forkfield-*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -54,7 +56,9 @@ jobs:
         if: runner.os == 'macOS'
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/Forkfield-*.dmg,dist/Forkfield-*.zip
+          files: |
+            dist/Forkfield-*.dmg
+            dist/Forkfield-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -66,6 +70,8 @@ jobs:
         if: runner.os == 'Linux'
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/Forkfield-*.AppImage,dist/Forkfield-*.deb
+          files: |
+            dist/Forkfield-*.AppImage
+            dist/Forkfield-*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
