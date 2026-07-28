@@ -36,18 +36,12 @@ nsis:
   allowToChangeInstallationDirectory: true
   perMachine: false
 mac:
-  # There is no Apple Developer certificate, so the best available is an ad-hoc
-  # signature — and on Apple Silicon that is not optional. The kernel refuses to
-  # execute unsigned arm64 code, and macOS reports the refusal to the user as
-  # "Forkfield is damaged and can't be opened", which offers no way forward. An
-  # ad-hoc signature turns that into the ordinary unidentified-developer prompt,
-  # which can be allowed in System Settings. Swap in a real "Developer ID
-  # Application" identity and set notarize: true once a certificate exists.
-  identity: '-'
-  # Hardened runtime exists to satisfy notarization, which we don't do. Left on,
-  # it pairs badly with an ad-hoc signature: library validation then blocks the
-  # app at launch.
-  hardenedRuntime: false
+  # Signed with the Developer ID certificate in CSC_LINK and notarized with the
+  # APPLE_* credentials, which is what gets rid of the Gatekeeper prompt. When
+  # those secrets are absent the release workflow overrides this to an ad-hoc
+  # signature instead — openable, but the user has to click through a warning.
+  # Hardened runtime is left at its default (on): notarization requires it.
+  notarize: true
   files:
     - '!node_modules/@anthropic-ai/claude-agent-sdk-!(darwin-${arch})/**'
   # Both arches explicitly: the CI runner is Apple Silicon, so a default build
@@ -64,9 +58,6 @@ mac:
         - arm64
         - x64
   artifactName: ${productName}-${version}-mac-${arch}.${ext}
-  # Requires Apple Developer account for code signing and notarization.
-  # Set via env: APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID (or use --sign-and-notarize CLI flag).
-  notarize: false  # Set to true once you have the credentials wired
 linux:
   # Drops the musl variant too: it installs alongside the glibc build, and the
   # AppImage and deb both target glibc.

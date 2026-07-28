@@ -66,13 +66,37 @@ jobs:
           chmod +x "$PKG/claude"
           file "$PKG/claude" | grep -q x86_64 || { echo "::error::not an x86_64 binary"; exit 1; }
 
+      # With a Developer ID certificate in CSC_LINK the app is signed and
+      # notarized, and opens with no warning at all. Without it the build still
+      # succeeds, but falls back to an ad-hoc signature: openable only after the
+      # user clicks through "unidentified developer". Note the credentials are
+      # exported only on the signed path — notarizing an ad-hoc signed app is
+      # rejected by Apple and would fail the build.
       - name: Build Electron (macOS)
         if: runner.os == 'macOS'
-        run: npx electron-builder --mac --publish=never
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID_SECRET: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD_SECRET: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID_SECRET: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "${CSC_LINK:-}" ]; then
+            # electron-builder looks for APPLE_APP_SPECIFIC_PASSWORD, not
+            # APPLE_PASSWORD; under the wrong name it skips notarization with
+            # only a warning.
+            export APPLE_ID="$APPLE_ID_SECRET"
+            export APPLE_APP_SPECIFIC_PASSWORD="$APPLE_PASSWORD_SECRET"
+            export APPLE_TEAM_ID="$APPLE_TEAM_ID_SECRET"
+            npx electron-builder --mac --publish=never
+          else
+            echo "::warning::No CSC_LINK secret — building ad-hoc signed. Users will have to click through the unidentified-developer prompt. Add the Developer ID certificate to enable notarization."
+            npx electron-builder --mac --publish=never \
+              --config.mac.identity=- \
+              --no-config.mac.hardenedRuntime \
+              --no-config.mac.notarize
+          fi
 
       - name: Upload macOS release
         if: runner.os == 'macOS'

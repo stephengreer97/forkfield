@@ -7,13 +7,10 @@ info → Run anyway**.
 **macOS** — download the `.dmg` for your Mac: `mac-arm64` for Apple Silicon
 (M1 and later), `mac-x64` for Intel. Drag Forkfield to Applications.
 
-Forkfield isn't signed with an Apple Developer certificate yet, so the first
-launch needs one extra step: **right-click the app → Open**, then confirm. If
-macOS refuses outright, open **System Settings → Privacy & Security**, scroll
-to the Security section, and click **Open Anyway** next to Forkfield.
-
-If macOS still says the app is *damaged*, the download quarantine is the cause.
-Clear it:
+If macOS says Forkfield "can't be verified" or "is damaged", this build wasn't
+notarized — **right-click the app → Open** and confirm, or open **System
+Settings → Privacy & Security** and click **Open Anyway** next to Forkfield.
+Should it still refuse, clear the download quarantine:
 
 ```bash
 xattr -cr /Applications/Forkfield.app

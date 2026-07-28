@@ -65,14 +65,35 @@ Users can also manually check via the app (future: Settings → Check for Update
 ### Code Signing (recommended, platform-specific)
 
 #### macOS
-- [ ] Apple Developer Program membership ($99/year)
-- [ ] Create App ID in Apple Developer Portal
-- [ ] Generate and export Developer ID signing certificates
-- [ ] Add secrets to GitHub repo:
-  - `APPLE_ID`: your Apple ID email
-  - `APPLE_PASSWORD`: an app-specific password
-  - `APPLE_TEAM_ID`: your team ID (e.g., `ABCD123456`)
-- [ ] Uncomment the `APPLE_*` env vars in `.github/workflows/release.yml`
+
+Five secrets, and the build signs and notarizes on its own. The three Apple
+credentials are only half of it — **without the certificate in `CSC_LINK`,
+electron-builder finds no signing identity and notarization is skipped**, which
+is what leaves users with the "damaged" error.
+
+- [x] Apple Developer Program membership ($99/year)
+- [ ] `CSC_LINK` — the Developer ID Application certificate, as base64 `.p12`
+- [ ] `CSC_KEY_PASSWORD` — the password set when exporting that `.p12`
+- [x] `APPLE_ID` — your Apple ID email
+- [x] `APPLE_PASSWORD` — an app-specific password (**not** your account
+      password; create one at appleid.apple.com). The workflow re-exports this
+      as `APPLE_APP_SPECIFIC_PASSWORD`, which is the name electron-builder
+      actually reads.
+- [x] `APPLE_TEAM_ID` — your team ID (e.g. `ABCD123456`)
+
+Exporting the certificate, on a Mac signed in to the developer account:
+
+```bash
+# If the cert doesn't exist yet: Xcode → Settings → Accounts → Manage
+# Certificates → + → Developer ID Application.
+# Keychain Access → My Certificates → right-click "Developer ID Application:
+# <name> (TEAMID)" → Export → .p12, and set a password.
+base64 -i ~/Desktop/forkfield-developer-id.p12 | gh secret set CSC_LINK
+gh secret set CSC_KEY_PASSWORD   # paste the .p12 password
+```
+
+Until `CSC_LINK` exists the workflow falls back to an ad-hoc signature and logs
+a warning; the app opens, but only after the user allows it in System Settings.
 
 #### Windows
 - [ ] Option A (classic): Buy an Authenticode code-signing certificate ($200–400/year)
