@@ -2,7 +2,10 @@
   "name": "forkfield",
   "version": "0.1.1",
   "description": "A branching canvas for Claude Code",
-  "author": "",
+  "author": {
+    "name": "Stephen Greer",
+    "email": "stephengreer97@gmail.com"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "start": "bash scripts/launch.sh",
