@@ -159,7 +159,16 @@ export interface RendererError {
   componentStack: string | null
 }
 
-export type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error'
+// 'manual' means a newer version exists but this install can't replace itself
+// (a Linux deb, say), so the user has to download it.
+export type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'manual'
+  | 'error'
 
 export interface UpdateState {
   status: UpdateStatus
@@ -189,5 +198,6 @@ export interface ForkfieldApi {
   getUpdateStatus(): Promise<UpdateState>
   checkForUpdates(): Promise<void>
   quitAndInstall(): void
+  openDownloadPage(): void
   reportError(err: RendererError): void
 }

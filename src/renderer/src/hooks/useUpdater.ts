@@ -25,5 +25,9 @@ export function useUpdater() {
     window.forkfield.quitAndInstall()
   }
 
-  return { updateState, checkForUpdates, installUpdate }
+  const openDownloadPage = () => {
+    window.forkfield.openDownloadPage()
+  }
+
+  return { updateState, checkForUpdates, installUpdate, openDownloadPage }
 }

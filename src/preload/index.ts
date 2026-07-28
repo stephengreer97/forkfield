@@ -47,6 +47,7 @@ const api: ForkfieldApi = {
   getUpdateStatus: () => ipcRenderer.invoke('updater:getStatus'),
   checkForUpdates: () => ipcRenderer.invoke('updater:checkForUpdates'),
   quitAndInstall: () => ipcRenderer.send('updater:quitAndInstall'),
+  openDownloadPage: () => ipcRenderer.send('updater:openDownloadPage'),
   reportError: (err: RendererError) => ipcRenderer.send('renderer:error', err)
 }
 

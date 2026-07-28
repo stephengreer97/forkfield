@@ -33,9 +33,19 @@ nsis:
   allowToChangeInstallationDirectory: true
   perMachine: false
 mac:
+  # Both arches explicitly: the CI runner is Apple Silicon, so a default build
+  # produces arm64 only and Intel users get no update path. electron-updater
+  # picks the right file out of latest-mac.yml by looking for "arm64" in the
+  # name, which the artifactName below provides.
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
   artifactName: ${productName}-${version}-mac-${arch}.${ext}
   # Requires Apple Developer account for code signing and notarization.
   # Set via env: APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID (or use --sign-and-notarize CLI flag).
@@ -45,3 +55,8 @@ linux:
     - AppImage
     - deb
   artifactName: ${productName}-${version}-linux-${arch}.${ext}
+# electron-updater can only replace a running AppImage, never a deb install, so
+# keep the deb out of latest-linux.yml. Deb users are pointed at the release
+# page instead (see src/main/updater.ts).
+deb:
+  publish: null

@@ -95,8 +95,15 @@ The workflow uses `secrets.GITHUB_TOKEN` (auto-provided by GitHub Actions). No m
 
 ### Platform-Specific Artifacts
 - **Windows:** `.exe` (NSIS installer) + `.zip` (portable) + `latest.yml`
-- **macOS:** `.dmg` (disk image) + `.zip` (zip archive) + `latest-mac.yml`
+- **macOS:** `.dmg` + `.zip`, each for **arm64 and x64** + `latest-mac.yml`
 - **Linux:** `.AppImage` + `.deb` (Debian package) + `latest-linux.yml`
+
+The macOS runner is Apple Silicon, so both arches are requested explicitly in
+`electron-builder.yml`; otherwise Intel Macs get no update path at all.
+
+Only the AppImage is listed in `latest-linux.yml` — electron-updater can
+replace a running AppImage but never a deb install. Deb users get a banner
+linking to the release page instead (`src/main/updater.ts`).
 
 The `latest*.yml` manifests are what `electron-updater` polls to detect a new
 version — a release without them is invisible to the in-app updater, even

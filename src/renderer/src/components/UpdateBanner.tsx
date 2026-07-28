@@ -3,7 +3,7 @@ import { useUpdater } from '../hooks/useUpdater'
 import Icon from './Icon'
 
 export default function UpdateBanner(): JSX.Element | null {
-  const { updateState, installUpdate } = useUpdater()
+  const { updateState, installUpdate, openDownloadPage } = useUpdater()
 
   if (updateState.status === 'ready') {
     return (
@@ -33,6 +33,25 @@ export default function UpdateBanner(): JSX.Element | null {
           <span className="update-text">
             Forkfield {updateState.version} is available. Downloading…
           </span>
+        </div>
+      </div>
+    )
+  }
+
+  // This install can't replace itself (a Linux deb, say), so send the user to
+  // the release page rather than offering an install button that can't work.
+  if (updateState.status === 'manual') {
+    return (
+      <div className="update-banner available">
+        <div className="update-content">
+          <span className="update-icon">
+            <Icon name="plus" size={16} />
+          </span>
+          <span className="update-text">Forkfield {updateState.version} is available.</span>
+          <button className="update-action btn tiny primary" onClick={openDownloadPage}>
+            <Icon name="external" size={13} />
+            Download
+          </button>
         </div>
       </div>
     )
