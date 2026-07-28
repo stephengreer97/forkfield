@@ -63,6 +63,7 @@ export default function CliView(props: {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const inputRef = useRef('')
   const stashRef = useRef<{ text: string; time: number } | null>(null)
+  const unsentRef = useRef('')
   const thinking = node.status === 'thinking' || node.status === 'awaiting_permission'
 
   // Slash command autocomplete, driven by the command list the SDK advertises.
@@ -152,8 +153,13 @@ export default function CliView(props: {
           props.onInterrupt(node.id)
           return
         }
-        // No selection, not thinking: clear the input and stash it; a quick
-        // second ctrl+c puts it back.
+        // Try to copy selected text first
+        const selected = window.getSelection()?.toString()
+        if (selected) {
+          void navigator.clipboard.writeText(selected)
+          return
+        }
+        // No selection: clear the input and stash it; a quick second ctrl+c puts it back.
         e.preventDefault()
         const current = inputRef.current
         if (current.trim()) {
@@ -371,6 +377,14 @@ export default function CliView(props: {
           </div>
         )}
 
+        <div className="cli-context-bar">
+          <div
+            className="cli-context-fill"
+            style={{ width: `${Math.min((tokens / 200000) * 100, 100)}%` }}
+            title={`${tokens.toLocaleString()} tokens used`}
+          />
+        </div>
+
         <div
           className="cli-transcript"
           ref={transcriptRef}
@@ -496,6 +510,9 @@ export default function CliView(props: {
                 const caret = e.currentTarget.selectionStart
                 if (!input.slice(0, caret).includes('\n')) {
                   e.preventDefault()
+                  if (histIndex === null) {
+                    unsentRef.current = input
+                  }
                   const idx =
                     histIndex === null ? history.length - 1 : Math.max(0, histIndex - 1)
                   setHistIndex(idx)
@@ -507,11 +524,11 @@ export default function CliView(props: {
                 const caret = e.currentTarget.selectionStart
                 if (!input.slice(caret).includes('\n')) {
                   e.preventDefault()
-                  if (histIndex >= history.length - 1) {
+                  if (histIndex === 0) {
                     setHistIndex(null)
-                    setInput('')
+                    setInput(unsentRef.current)
                   } else {
-                    const idx = histIndex + 1
+                    const idx = histIndex - 1
                     setHistIndex(idx)
                     setInput(history[idx])
                   }

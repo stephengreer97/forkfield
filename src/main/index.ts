@@ -235,6 +235,17 @@ ipcMain.handle('editor:open', async (_e, p: { command: string; path: string }) =
   }
 })
 
+ipcMain.handle('debug:screenshot', async (_e, path: string) => {
+  if (!win) return false
+  try {
+    const image = await win.webContents.capturePage()
+    writeFileSync(path, image.toPNG())
+    return true
+  } catch {
+    return false
+  }
+})
+
 ipcMain.on('session:interrupt', (_e, nodeId: string) => {
   sessions.interrupt(nodeId)
 })

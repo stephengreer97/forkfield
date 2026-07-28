@@ -259,6 +259,31 @@ export default function App(): JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Auto-compact layout when context gets too long (>80% of 200k tokens)
+  const autoCompactRef = useRef(false)
+  useEffect(() => {
+    if (!canvas) return
+    let anyNodeHighContext = false
+    for (const node of canvas.nodes) {
+      const tokens = node.usage.input + node.usage.output + node.usage.cacheRead + node.usage.cacheWrite
+      if (tokens > 160000) {
+        anyNodeHighContext = true
+        break
+      }
+    }
+    if (anyNodeHighContext && !autoCompactRef.current) {
+      autoCompactRef.current = true
+      useStore.getState().setNodePositions(tidyLayout(canvas.nodes))
+      setFitNonce((n) => n + 1)
+      useStore.getState().pushToast({
+        kind: 'info',
+        message: 'Auto-compacted layout (context getting long)'
+      })
+    } else if (!anyNodeHighContext) {
+      autoCompactRef.current = false
+    }
+  }, [canvas?.nodes.length, canvas?.nodes.map((n) => n.usage).join()])
+
   // Automation bridge (debug builds only): lets the demo driver script the app
   // over CDP without touching internals from the outside.
   useEffect(() => {
