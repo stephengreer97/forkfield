@@ -38,15 +38,19 @@ jobs:
 
       - name: Build Electron (macOS)
         if: runner.os == 'macOS'
-        run: npx electron-builder --mac --publish always
+        run: npx electron-builder --mac
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build Electron (Linux)
         if: runner.os == 'Linux'
-        run: npx electron-builder --linux --publish always
+        run: npx electron-builder --linux
+
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
