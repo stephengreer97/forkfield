@@ -94,9 +94,14 @@ The workflow uses `secrets.GITHUB_TOKEN` (auto-provided by GitHub Actions). No m
 - Users notified in-app; auto-update downloads the new version
 
 ### Platform-Specific Artifacts
-- **Windows:** `.exe` (NSIS installer) + `.zip` (portable)
-- **macOS:** `.dmg` (disk image) + `.zip` (zip archive)
-- **Linux:** `.AppImage` + `.deb` (Debian package)
+- **Windows:** `.exe` (NSIS installer) + `.zip` (portable) + `latest.yml`
+- **macOS:** `.dmg` (disk image) + `.zip` (zip archive) + `latest-mac.yml`
+- **Linux:** `.AppImage` + `.deb` (Debian package) + `latest-linux.yml`
+
+The `latest*.yml` manifests are what `electron-updater` polls to detect a new
+version — a release without them is invisible to the in-app updater, even
+though the installers download fine. They must match the `publish.owner` /
+`publish.repo` in `electron-builder.yml`, which is baked into the shipped app.
 
 ---
 

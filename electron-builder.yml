@@ -6,7 +6,7 @@ directories:
 # Token needs repo:public_repo permission for public repos (classic token).
 publish:
   - provider: github
-    owner: sgreer  # will auto-detect from git remote if available
+    owner: stephengreer97  # must match the GitHub org/user in the repo URL
     repo: forkfield
     releaseType: release  # or 'draft' for testing
 files:
