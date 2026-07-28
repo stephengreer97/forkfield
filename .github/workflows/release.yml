@@ -91,6 +91,10 @@ jobs:
             export APPLE_TEAM_ID="$APPLE_TEAM_ID_SECRET"
             npx electron-builder --mac --publish=never
           else
+            # A secret that isn't set still arrives as an empty string, and
+            # electron-builder reads an empty CSC_LINK as a certificate path:
+            # it resolves to the project directory and fails with "not a file".
+            unset CSC_LINK CSC_KEY_PASSWORD
             echo "::warning::No CSC_LINK secret — building ad-hoc signed. Users will have to click through the unidentified-developer prompt. Add the Developer ID certificate to enable notarization."
             npx electron-builder --mac --publish=never \
               --config.mac.identity=- \
