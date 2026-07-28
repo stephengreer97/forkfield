@@ -13,17 +13,20 @@ files:
   - out/**/*
   - package.json
   - node_modules/**/*
-  # Only the target platform's Claude CLI binary is needed; each is ~256 MB.
-  - '!node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/**'
-  - '!node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl/**'
-  - '!node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64/**'
-  - '!node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64-musl/**'
-  - '!node_modules/@anthropic-ai/claude-agent-sdk-darwin-x64/**'
-  - '!node_modules/@anthropic-ai/claude-agent-sdk-darwin-arm64/**'
-  - '!node_modules/@anthropic-ai/claude-agent-sdk-win32-arm64/**'
+  # The Claude CLI ships as one ~256 MB binary per platform+arch, and the app is
+  # useless without the one it runs on (the SDK resolves
+  # @anthropic-ai/claude-agent-sdk-<platform>-<arch>/claude and errors out if it
+  # is missing). Keep exactly that one: each platform block below drops every
+  # sibling. These must be exclusions — electron-builder ignores *include*
+  # patterns for node_modules, taking only the "!" ones.
 asarUnpack:
   - '**/@anthropic-ai/claude-agent-sdk-*/**'
 win:
+  # "!(win32-${arch})" is an extglob: it matches every sibling package whose
+  # name is not this build's, so only the right binary survives. ${arch} is
+  # expanded per pack, which is what makes the two-arch mac build work.
+  files:
+    - '!node_modules/@anthropic-ai/claude-agent-sdk-!(win32-${arch})/**'
   target:
     - nsis
     - zip
@@ -33,6 +36,8 @@ nsis:
   allowToChangeInstallationDirectory: true
   perMachine: false
 mac:
+  files:
+    - '!node_modules/@anthropic-ai/claude-agent-sdk-!(darwin-${arch})/**'
   # Both arches explicitly: the CI runner is Apple Silicon, so a default build
   # produces arm64 only and Intel users get no update path. electron-updater
   # picks the right file out of latest-mac.yml by looking for "arm64" in the
@@ -51,6 +56,10 @@ mac:
   # Set via env: APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID (or use --sign-and-notarize CLI flag).
   notarize: false  # Set to true once you have the credentials wired
 linux:
+  # Drops the musl variant too: it installs alongside the glibc build, and the
+  # AppImage and deb both target glibc.
+  files:
+    - '!node_modules/@anthropic-ai/claude-agent-sdk-!(linux-${arch})/**'
   target:
     - AppImage
     - deb

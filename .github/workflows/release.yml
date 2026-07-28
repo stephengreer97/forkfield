@@ -49,6 +49,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The macOS runner is Apple Silicon, so npm installs only the arm64 Claude
+      # binary and the Intel app would ship without one. Fetch it straight from
+      # the registry: `npm install` would re-resolve the tree against this
+      # host's os/cpu and can drop the arm64 package the other build needs.
+      - name: Fetch the Intel Claude binary
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./node_modules/@anthropic-ai/claude-agent-sdk/package.json').version")
+          PKG="node_modules/@anthropic-ai/claude-agent-sdk-darwin-x64"
+          TARBALL=$(cd /tmp && npm pack "@anthropic-ai/claude-agent-sdk-darwin-x64@$VERSION" --loglevel=error | tail -1)
+          mkdir -p "$PKG"
+          tar -xzf "/tmp/$TARBALL" -C "$PKG" --strip-components=1
+          chmod +x "$PKG/claude"
+          file "$PKG/claude" | grep -q x86_64 || { echo "::error::not an x86_64 binary"; exit 1; }
+
       - name: Build Electron (macOS)
         if: runner.os == 'macOS'
         run: npx electron-builder --mac --publish=never

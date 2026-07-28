@@ -105,6 +105,13 @@ Only the AppImage is listed in `latest-linux.yml` — electron-updater can
 replace a running AppImage but never a deb install. Deb users get a banner
 linking to the release page instead (`src/main/updater.ts`).
 
+Every artifact bundles the Claude CLI binary for its own platform and arch
+(~256 MB, unpacked from the asar). The SDK resolves
+`@anthropic-ai/claude-agent-sdk-<platform>-<arch>/claude` and fails to start a
+session without it, so the per-platform `files` rules in `electron-builder.yml`
+keep exactly one and drop the siblings. The Intel Mac binary is fetched
+explicitly in CI, since the runner is Apple Silicon.
+
 The `latest*.yml` manifests are what `electron-updater` polls to detect a new
 version — a release without them is invisible to the in-app updater, even
 though the installers download fine. They must match the `publish.owner` /
