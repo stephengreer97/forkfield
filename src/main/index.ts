@@ -4,7 +4,7 @@ import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { SessionManager } from './sessions'
 import { loadCanvas, saveCanvas } from './persistence'
-import { recordRendererError } from './errorlog'
+import { recordRendererError, recordProcessGone } from './errorlog'
 import { loadSessionHistory } from './history'
 import { setupUpdater } from './updater'
 import { spawn } from 'child_process'
@@ -18,6 +18,13 @@ import type {
 } from '../shared/types'
 
 let win: BrowserWindow | null = null
+
+// Children are signalled as part of a normal quit; logging those would bury the
+// deaths that actually matter.
+let quitting = false
+app.on('before-quit', () => {
+  quitting = true
+})
 
 // Debug/automation mode: opt-in via env so a CDP client (the demo driver) can
 // attach. Off by default, so normal users never expose a debug port.
@@ -44,6 +51,12 @@ function createWindow(): void {
     if (input.type === 'keyDown' && input.key === 'F12') {
       win?.webContents.toggleDevTools()
     }
+  })
+
+  // The window going blank because its renderer died leaves no JS trace.
+  win.webContents.on('render-process-gone', (_e, details) => {
+    if (quitting) return
+    recordProcessGone('renderer', { reason: details.reason, exitCode: details.exitCode })
   })
 
   const devUrl = process.env['ELECTRON_RENDERER_URL']
@@ -94,6 +107,18 @@ if (!app.requestSingleInstanceLock()) {
       if (win.isMinimized()) win.restore()
       win.focus()
     }
+  })
+
+  // GPU/utility/zygote deaths are what actually take the app down: Chromium
+  // retries the launch, gives up, and aborts before any JS can react.
+  app.on('child-process-gone', (_e, details) => {
+    if (quitting) return
+    recordProcessGone(details.type, {
+      serviceName: details.serviceName,
+      name: details.name,
+      reason: details.reason,
+      exitCode: details.exitCode
+    })
   })
 
   app.whenReady().then(() => {

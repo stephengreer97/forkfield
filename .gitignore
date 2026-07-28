@@ -9,3 +9,4 @@ dist-electron/
 # Generated demo artifacts
 demo.gif
 demo.mp4
+.forkfield.pid

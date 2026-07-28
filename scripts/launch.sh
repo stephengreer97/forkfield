@@ -41,4 +41,8 @@ echo "Launching Forkfield in the background..."
 # setsid + & detaches from this terminal so the app keeps running and the
 # shell prompt returns immediately. Logs go to the file above.
 setsid node_modules/electron/dist/electron --no-sandbox . >>"$LOG" 2>&1 < /dev/null &
+# setsid makes the app its own process group leader, so stop.sh can signal the
+# parent and every child together. Killing only the children leaves the parent
+# retrying doomed launches until Chromium aborts.
+echo $! >"$REPO/.forkfield.pid"
 echo "Forkfield is running in the background. Logs: $LOG"

@@ -1014,6 +1014,15 @@ export default function App(): JSX.Element {
           onCancel={() => setLoginInfo(false)}
         />
       )}
+      {terminalCmd && (
+        <ConfirmDialog
+          title={`/${terminalCmd}`}
+          message={`This is a terminal-only Claude Code feature. Open a terminal, run 'claude', and then use /${terminalCmd}.`}
+          confirmLabel="OK"
+          onConfirm={() => setTerminalCmd(null)}
+          onCancel={() => setTerminalCmd(null)}
+        />
+      )}
       {settingsOpen && (
         <SettingsDialog
           settings={canvas.settings}
