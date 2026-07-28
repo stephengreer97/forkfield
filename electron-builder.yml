@@ -36,6 +36,18 @@ nsis:
   allowToChangeInstallationDirectory: true
   perMachine: false
 mac:
+  # There is no Apple Developer certificate, so the best available is an ad-hoc
+  # signature — and on Apple Silicon that is not optional. The kernel refuses to
+  # execute unsigned arm64 code, and macOS reports the refusal to the user as
+  # "Forkfield is damaged and can't be opened", which offers no way forward. An
+  # ad-hoc signature turns that into the ordinary unidentified-developer prompt,
+  # which can be allowed in System Settings. Swap in a real "Developer ID
+  # Application" identity and set notarize: true once a certificate exists.
+  identity: '-'
+  # Hardened runtime exists to satisfy notarization, which we don't do. Left on,
+  # it pairs badly with an ad-hoc signature: library validation then blocks the
+  # app at launch.
+  hardenedRuntime: false
   files:
     - '!node_modules/@anthropic-ai/claude-agent-sdk-!(darwin-${arch})/**'
   # Both arches explicitly: the CI runner is Apple Silicon, so a default build

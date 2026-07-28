@@ -41,6 +41,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: softprops/action-gh-release@v1
         with:
+          body_path: .github/release-notes.md
           files: |
             dist/Forkfield-*.zip
             dist/Forkfield-*.exe
@@ -77,6 +78,7 @@ jobs:
         if: runner.os == 'macOS'
         uses: softprops/action-gh-release@v1
         with:
+          body_path: .github/release-notes.md
           files: |
             dist/Forkfield-*.dmg
             dist/Forkfield-*.zip
@@ -93,6 +95,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: softprops/action-gh-release@v1
         with:
+          body_path: .github/release-notes.md
           files: |
             dist/Forkfield-*.AppImage
             dist/Forkfield-*.deb

@@ -132,6 +132,25 @@ GITHUB_TOKEN=<your_personal_access_token> npm run dist:win
 - Ensure the tag matches `v*` format
 - Ensure the repo is public (or Actions secret perms allow it)
 
+### macOS says "Forkfield is damaged and can't be opened"
+
+Gatekeeper, not a bad download. Apple Silicon refuses to execute unsigned
+arm64 code, and that is the message it shows. Builds are now ad-hoc signed
+(`mac.identity: '-'`), which downgrades this to the normal
+unidentified-developer prompt — **right-click → Open**, or **System Settings →
+Privacy & Security → Open Anyway**.
+
+If a user still hits it (an older download, or quarantine on a copied file):
+
+```bash
+xattr -cr /Applications/Forkfield.app
+# only needed if the app was never signed at all:
+codesign --force --deep --sign - /Applications/Forkfield.app
+```
+
+The real fix is a Developer ID certificate plus notarization, which removes the
+prompt entirely. See the code-signing checklist above.
+
 ### macOS notarization fails
 - Verify `APPLE_ID` and `APPLE_PASSWORD` are correct
 - If 2FA is on, use an app-specific password, not your main password
