@@ -705,14 +705,40 @@ body,
   border-bottom: 1px solid var(--border);
   background: var(--panel-3);
 }
+.cli-context {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-4);
+  background: var(--panel-3);
+  border-bottom: 1px solid var(--border);
+}
+.cli-context-label,
+.cli-context-value {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cli-context-value {
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.cli-context.high .cli-context-value {
+  color: var(--yellow);
+}
 .cli-context-bar {
-  height: 8px;
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: var(--r-pill);
   background: var(--border);
   overflow: hidden;
-  margin-bottom: 4px;
 }
 .cli-context-fill {
   height: 100%;
+  border-radius: var(--r-pill);
   background: linear-gradient(90deg, var(--accent), var(--yellow));
   transition: width 0.3s ease;
 }

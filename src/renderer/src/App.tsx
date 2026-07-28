@@ -11,6 +11,7 @@ import {
   autoTitle,
   buildBranchPrompt,
   cleanResumeId,
+  CONTEXT_LIMIT,
   descendantIds,
   formatCost,
   formatTokens,
@@ -265,8 +266,7 @@ export default function App(): JSX.Element {
     if (!canvas) return
     let anyNodeHighContext = false
     for (const node of canvas.nodes) {
-      const tokens = node.usage.input + node.usage.output + node.usage.cacheRead + node.usage.cacheWrite
-      if (tokens > 160000) {
+      if ((node.contextTokens ?? 0) > CONTEXT_LIMIT * 0.8) {
         anyNodeHighContext = true
         break
       }
@@ -282,7 +282,7 @@ export default function App(): JSX.Element {
     } else if (!anyNodeHighContext) {
       autoCompactRef.current = false
     }
-  }, [canvas?.nodes.length, canvas?.nodes.map((n) => n.usage).join()])
+  }, [canvas?.nodes.length, canvas?.nodes.map((n) => n.contextTokens ?? 0).join()])
 
   // Automation bridge (debug builds only): lets the demo driver script the app
   // over CDP without touching internals from the outside.
@@ -699,8 +699,10 @@ export default function App(): JSX.Element {
     if (!dir) return
     const node = useStore.getState().addRoot(dir, resumeSessionId ?? null)
     if (node && resumeSessionId) {
-      const turns = await window.forkfield.loadHistory(resumeSessionId)
-      if (turns && turns.length) useStore.getState().setNodeTurns(node.id, turns)
+      const history = await window.forkfield.loadHistory(resumeSessionId)
+      if (history && history.turns.length) {
+        useStore.getState().setNodeTurns(node.id, history.turns, history.contextTokens)
+      }
     }
   }, [])
 

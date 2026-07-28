@@ -50,7 +50,7 @@ interface Store {
     selection: string
   ): CanvasNode | null
   appendUserTurn(nodeId: string, text: string): void
-  setNodeTurns(nodeId: string, turns: Turn[]): void
+  setNodeTurns(nodeId: string, turns: Turn[], contextTokens?: number): void
   setNodeModel(nodeId: string, model: string | null): void
   setNodeWorktree(nodeId: string, wt: Worktree): void
   setNodeTitle(nodeId: string, title: string, auto?: boolean): void
@@ -271,12 +271,13 @@ export const useStore = create<Store>((set, get) => ({
     })
   },
 
-  setNodeTurns(nodeId, turns) {
+  setNodeTurns(nodeId, turns, contextTokens) {
     set((s) =>
       s.canvas
         ? {
             canvas: replaceNode(s.canvas, nodeId, (n) => {
               n.turns = turns
+              if (contextTokens !== undefined) n.contextTokens = contextTokens
               return n
             })
           }
@@ -530,6 +531,7 @@ export const useStore = create<Store>((set, get) => ({
           return {
             canvas: replaceNode(canvas, e.nodeId, (n) => {
               n.usage = addUsage(n.usage, e.usage)
+              if (e.contextTokens) n.contextTokens = e.contextTokens
               if (e.sessionId) n.sessionId = e.sessionId
               if (e.nodeId !== s.openNodeId) n.unread = true
               const turn = n.turns.find((t) => t.id === e.turnId)

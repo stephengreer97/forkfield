@@ -36,6 +36,11 @@ export interface Turn {
   createdAt: number
 }
 
+export interface SessionHistory {
+  turns: Turn[]
+  contextTokens: number
+}
+
 export interface CanvasNode {
   id: string
   parentId: string | null
@@ -47,6 +52,10 @@ export interface CanvasNode {
   status: NodeStatus
   turns: Turn[]
   usage: Usage
+  // Tokens occupying the model's context window right now (the last assistant
+  // message's input + cache + output), as opposed to `usage`, which is the
+  // cumulative total billed across every turn.
+  contextTokens?: number
   title: string
   unread: boolean
   model?: string | null
@@ -133,6 +142,7 @@ export type SessionEvent =
       nodeId: string
       turnId: string
       usage: Usage
+      contextTokens: number
       sessionId: string | null
       model?: string | null
     }
@@ -164,7 +174,7 @@ export interface ForkfieldApi {
   startTurn(params: StartTurnParams): Promise<void>
   interrupt(nodeId: string): void
   respondPermission(requestId: string, allow: boolean): void
-  loadHistory(sessionId: string): Promise<Turn[] | null>
+  loadHistory(sessionId: string): Promise<SessionHistory | null>
   saveFile(canvas: CanvasState, path?: string | null): Promise<string | null>
   openFile(): Promise<{ path: string; canvas: CanvasState } | null>
   onMenu(cb: (action: string) => void): () => void

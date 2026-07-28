@@ -50,6 +50,7 @@ interface NodeRuntime {
   abort: AbortController | null
   busy: boolean
   lastModel: string | null
+  lastContextTokens: number
   streamed: boolean
   blocks: Map<number, StreamBlock>
 }
@@ -83,6 +84,7 @@ export class SessionManager {
         abort: null,
         busy: false,
         lastModel: null,
+        lastContextTokens: 0,
         streamed: false,
         blocks: new Map()
       }
@@ -252,6 +254,18 @@ export class SessionManager {
       }
       case 'assistant': {
         if (message.message?.model) rt.lastModel = message.message.model
+        // Each assistant message reports the whole conversation it was sent, so
+        // the newest one is the current context size. The result message's usage
+        // can't be used for this: it sums every request made during the turn.
+        const mu = message.message?.usage
+        if (mu) {
+          const ctx =
+            (mu.input_tokens ?? 0) +
+            (mu.cache_read_input_tokens ?? 0) +
+            (mu.cache_creation_input_tokens ?? 0) +
+            (mu.output_tokens ?? 0)
+          if (ctx) rt.lastContextTokens = ctx
+        }
         // Everything was already emitted from the stream; the final message
         // would just duplicate it. Only fall back if streaming produced nothing.
         if (rt.streamed) break
@@ -305,6 +319,7 @@ export class SessionManager {
           nodeId: rt.nodeId,
           turnId,
           usage,
+          contextTokens: rt.lastContextTokens,
           sessionId: rt.sessionId,
           model: rt.lastModel
         })

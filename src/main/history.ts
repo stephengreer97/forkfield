@@ -2,7 +2,7 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { existsSync, readdirSync, readFileSync, mkdirSync, copyFileSync } from 'fs'
 import { randomUUID } from 'crypto'
-import type { ContentBlock, Turn } from '../shared/types'
+import type { ContentBlock, SessionHistory, Turn } from '../shared/types'
 
 // Resolve the Claude config directory, respecting CLAUDE_CONFIG_DIR env var.
 function claudeConfigDir(): string {
@@ -73,7 +73,19 @@ function textOf(content: unknown): ContentBlock[] {
   return out
 }
 
-export function loadSessionHistory(sessionId: string): Turn[] | null {
+// Context size is what the *last* request carried, not a sum: every assistant
+// message reports the whole conversation it was sent (input + cache + output).
+function contextTokensOf(usage: any): number {
+  if (!usage) return 0
+  return (
+    (usage.input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0) +
+    (usage.cache_creation_input_tokens ?? 0) +
+    (usage.output_tokens ?? 0)
+  )
+}
+
+export function loadSessionHistory(sessionId: string): SessionHistory | null {
   const file = findSessionFile(sessionId)
   if (!file) return null
   let raw: string
@@ -85,6 +97,7 @@ export function loadSessionHistory(sessionId: string): Turn[] | null {
 
   const turns: Turn[] = []
   let lastAssistant: Turn | null = null
+  let contextTokens = 0
 
   for (const line of raw.split('\n')) {
     const trimmed = line.trim()
@@ -103,6 +116,8 @@ export function loadSessionHistory(sessionId: string): Turn[] | null {
     if (!message) continue
 
     if (type === 'assistant') {
+      const ctx = contextTokensOf(message.usage)
+      if (ctx) contextTokens = ctx
       const blocks = textOf(message.content)
       if (!blocks.length) continue
       // Claude Code writes one content block per line; merge consecutive
@@ -128,5 +143,5 @@ export function loadSessionHistory(sessionId: string): Turn[] | null {
     }
   }
 
-  return turns
+  return { turns, contextTokens }
 }

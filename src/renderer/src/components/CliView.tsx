@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { JSX, MouseEvent as ReactMouseEvent } from 'react'
 import type { CanvasNode, ContentBlock, Turn } from '../../../shared/types'
 import type { PendingPermission } from '../store'
-import { formatCost, formatTokens, usageBreakdown } from '../util'
+import { CONTEXT_LIMIT, formatCost, formatTokens, usageBreakdown } from '../util'
 import { Markdown } from './Markdown'
 import Icon from './Icon'
 
@@ -279,6 +279,8 @@ export default function CliView(props: {
   }
 
   const tokens = node.usage.input + node.usage.output + node.usage.cacheRead + node.usage.cacheWrite
+  const contextTokens = node.contextTokens ?? 0
+  const contextPct = Math.min((contextTokens / CONTEXT_LIMIT) * 100, 100)
 
   return (
     <div
@@ -377,12 +379,28 @@ export default function CliView(props: {
           </div>
         )}
 
-        <div className="cli-context-bar">
+        <div
+          className={`cli-context${contextPct >= 80 ? ' high' : ''}`}
+          title={
+            contextTokens
+              ? `Context window: ${contextTokens.toLocaleString()} of ${CONTEXT_LIMIT.toLocaleString()} tokens used (${Math.round(contextPct)}%)`
+              : 'Context window: nothing used yet — this fills as the conversation grows'
+          }
+        >
+          <span className="cli-context-label">Context</span>
           <div
-            className="cli-context-fill"
-            style={{ width: `${Math.min((tokens / 200000) * 100, 100)}%` }}
-            title={`${tokens.toLocaleString()} tokens used`}
-          />
+            className="cli-context-bar"
+            role="progressbar"
+            aria-label="Context window used"
+            aria-valuemin={0}
+            aria-valuemax={CONTEXT_LIMIT}
+            aria-valuenow={contextTokens}
+          >
+            <div className="cli-context-fill" style={{ width: `${contextPct}%` }} />
+          </div>
+          <span className="cli-context-value">
+            {formatTokens(contextTokens)} / {formatTokens(CONTEXT_LIMIT)}
+          </span>
         </div>
 
         <div

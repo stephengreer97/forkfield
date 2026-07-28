@@ -110,6 +110,9 @@ export function buildBranchPrompt(selection: string, question: string): string {
   return `Regarding this part of your previous response:\n\n${quoted}\n\n${question}`
 }
 
+// Usable context window per session, in tokens.
+export const CONTEXT_LIMIT = 200_000
+
 export function formatTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
