@@ -34,6 +34,14 @@ jobs:
         if: runner.os == 'Windows'
         run: npm run dist:win
 
+      - name: Upload Windows release
+        if: runner.os == 'Windows'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/Forkfield-*-x64.zip,dist/Forkfield Setup-*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Electron (macOS)
         if: runner.os == 'macOS'
         run: npx electron-builder --mac --publish=never
@@ -42,13 +50,22 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
+      - name: Upload macOS release
+        if: runner.os == 'macOS'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/Forkfield-*.dmg,dist/Forkfield-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Electron (Linux)
         if: runner.os == 'Linux'
         run: npx electron-builder --linux --publish=never
 
-      - name: Upload assets to release
+      - name: Upload Linux release
+        if: runner.os == 'Linux'
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/**/*
+          files: dist/Forkfield-*.AppImage,dist/Forkfield-*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
