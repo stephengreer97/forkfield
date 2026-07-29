@@ -7,6 +7,7 @@ import Toaster from './components/Toaster'
 import Icon from './components/Icon'
 import UpdateBanner from './components/UpdateBanner'
 import CommandPalette, { type PaletteItem } from './components/CommandPalette'
+import SessionPicker from './components/SessionPicker'
 import {
   autoTitle,
   buildBranchPrompt,
@@ -140,6 +141,7 @@ export default function App(): JSX.Element {
   )
   const [newRootChoice, setNewRootChoice] = useState(false)
   const [resumePrompt, setResumePrompt] = useState(false)
+  const [sessionPicker, setSessionPicker] = useState(false)
   const [modelPicker, setModelPicker] = useState<{ nodeId: string } | null>(null)
   const [branchAnim, setBranchAnim] = useState<'collapse' | 'enter' | null>(null)
   const [confirmClear, setConfirmClear] = useState<{ nodeId: string } | null>(null)
@@ -692,10 +694,11 @@ export default function App(): JSX.Element {
   }, [handleNew, handleOpen, handleSave, handleSaveAs])
 
   // Adds an independent root to the existing canvas. Optionally resumes a
-  // Claude session by id. Both paths prompt for the folder.
-  const addNewSession = useCallback(async (rawResume?: string) => {
+  // Claude session by id. The folder is only prompted for when it isn't already
+  // known — a session picked from the list carries its own working directory.
+  const addNewSession = useCallback(async (rawResume?: string, knownDir?: string) => {
     const resumeSessionId = rawResume ? cleanResumeId(rawResume) : undefined
-    const dir = await window.forkfield.chooseDirectory()
+    const dir = knownDir ?? (await window.forkfield.chooseDirectory())
     if (!dir) return
     const node = useStore.getState().addRoot(dir, resumeSessionId ?? null)
     if (node && resumeSessionId) {
@@ -964,13 +967,27 @@ export default function App(): JSX.Element {
             },
             {
               label: 'Resume a session',
-              desc: 'Enter an existing Claude session id, then pick its folder.',
+              desc: 'Pick up any recent Claude Code session on this machine.',
               onClick: () => {
                 setNewRootChoice(false)
-                setResumePrompt(true)
+                setSessionPicker(true)
               }
             }
           ]}
+        />
+      )}
+      {sessionPicker && (
+        <SessionPicker
+          onClose={() => setSessionPicker(false)}
+          onEnterId={() => {
+            setSessionPicker(false)
+            setResumePrompt(true)
+          }}
+          onPick={(s) => {
+            // A session whose folder has since moved or been deleted still
+            // resumes fine; it just needs somewhere to run.
+            void addNewSession(s.sessionId, s.cwdExists && s.cwd ? s.cwd : undefined)
+          }}
         />
       )}
       {resumePrompt && (

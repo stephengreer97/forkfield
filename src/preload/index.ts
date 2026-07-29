@@ -18,6 +18,7 @@ const api: ForkfieldApi = {
   respondPermission: (requestId: string, allow: boolean) =>
     ipcRenderer.send('session:respondPermission', { requestId, allow }),
   loadHistory: (sessionId: string) => ipcRenderer.invoke('session:loadHistory', sessionId),
+  listSessions: () => ipcRenderer.invoke('session:list'),
   saveFile: (canvas: CanvasState, path?: string | null) =>
     ipcRenderer.invoke('file:save', { canvas, path: path ?? null }),
   openFile: () => ipcRenderer.invoke('file:open'),

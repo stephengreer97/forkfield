@@ -1,8 +1,18 @@
 import { homedir } from 'os'
-import { join } from 'path'
-import { existsSync, readdirSync, readFileSync, mkdirSync, copyFileSync } from 'fs'
+import { basename, join } from 'path'
+import {
+  closeSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  readdirSync,
+  statSync
+} from 'fs'
 import { randomUUID } from 'crypto'
-import type { ContentBlock, SessionHistory, Turn } from '../shared/types'
+import type { ContentBlock, SessionHistory, SessionSummary, Turn } from '../shared/types'
 
 // Resolve the Claude config directory, respecting CLAUDE_CONFIG_DIR env var.
 function claudeConfigDir(): string {
@@ -52,6 +62,124 @@ export function ensureSessionInCwd(cwd: string, sessionId: string): void {
   } catch (err) {
     console.error('ensureSessionInCwd failed:', err)
   }
+}
+
+// Transcripts run to tens of megabytes, but everything a session list needs
+// sits in the opening lines: `cwd` is on the first one and the opening prompt
+// follows soon after. Read a fixed head instead of the whole file so listing
+// cost doesn't scale with conversation length.
+const HEAD_BYTES = 32 * 1024
+
+function readHead(file: string, bytes: number): string {
+  let fd: number | null = null
+  try {
+    fd = openSync(file, 'r')
+    const buf = Buffer.alloc(bytes)
+    const read = readSync(fd, buf, 0, bytes, 0)
+    return buf.subarray(0, read).toString('utf8')
+  } catch {
+    return ''
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* already gone */
+      }
+    }
+  }
+}
+
+// The first thing the user actually typed, which makes a far better label than
+// a session id. Skips the machinery that also arrives as "user" messages:
+// tool results, slash-command envelopes, and injected reminders — all of which
+// are either non-text or start with an XML-ish tag.
+function firstPrompt(obj: any): string | null {
+  if (obj?.type !== 'user' || obj?.isSidechain || obj?.isMeta) return null
+  const content = obj?.message?.content
+  let text: string | null = null
+  if (typeof content === 'string') {
+    text = content
+  } else if (Array.isArray(content)) {
+    const block = content.find((b: any) => b?.type === 'text' && typeof b.text === 'string')
+    text = block?.text ?? null
+  }
+  if (!text) return null
+  const clean = text.trim().replace(/\s+/g, ' ')
+  if (!clean || clean.startsWith('<')) return null
+  return clean.slice(0, 120)
+}
+
+// Every resumable Claude session on this machine, newest first. The same id can
+// exist under several project dirs — `ensureSessionInCwd` copies a transcript
+// when a fork runs in a worktree — so collapse duplicates and keep the newest.
+export function listRecentSessions(limit = 40): SessionSummary[] {
+  const base = join(claudeConfigDir(), 'projects')
+  if (!existsSync(base)) return []
+  let dirs: string[]
+  try {
+    dirs = readdirSync(base)
+  } catch {
+    return []
+  }
+
+  const bySession = new Map<string, SessionSummary>()
+  for (const dir of dirs) {
+    let files: string[]
+    try {
+      files = readdirSync(join(base, dir)).filter((f) => f.endsWith('.jsonl'))
+    } catch {
+      continue
+    }
+    for (const file of files) {
+      const path = join(base, dir, file)
+      const sessionId = basename(file, '.jsonl')
+      let updatedAt: number
+      let bytes: number
+      try {
+        const st = statSync(path)
+        updatedAt = st.mtimeMs
+        bytes = st.size
+      } catch {
+        continue
+      }
+      const existing = bySession.get(sessionId)
+      if (existing && existing.updatedAt >= updatedAt) continue
+
+      let cwd: string | null = null
+      let title: string | null = null
+      let gitBranch: string | null = null
+      for (const line of readHead(path, HEAD_BYTES).split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        let obj: any
+        try {
+          obj = JSON.parse(trimmed)
+        } catch {
+          // A truncated final line is expected: we read a fixed-size head.
+          continue
+        }
+        cwd = cwd ?? obj?.cwd ?? null
+        // Outside a repo (or on a detached head) Claude records "HEAD", which
+        // tells the user nothing — treat it as no branch.
+        if (!gitBranch && obj?.gitBranch && obj.gitBranch !== 'HEAD') gitBranch = obj.gitBranch
+        title = title ?? firstPrompt(obj)
+        if (cwd && title) break
+      }
+
+      bySession.set(sessionId, {
+        sessionId,
+        cwd,
+        cwdExists: !!cwd && existsSync(cwd),
+        title,
+        gitBranch,
+        updatedAt,
+        bytes
+      })
+    }
+  }
+
+  return [...bySession.values()].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, limit)
 }
 
 function textOf(content: unknown): ContentBlock[] {

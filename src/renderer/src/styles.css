@@ -1363,6 +1363,72 @@ body,
   color: var(--muted);
 }
 
+/* Resume picker: same shell as the command palette, two-line rows */
+.session-picker {
+  width: 680px;
+  max-height: 70vh;
+}
+.session-item {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 9px 10px;
+}
+.session-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.session-title {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 0;
+}
+.session-project {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-dot {
+  opacity: 0.5;
+}
+.session-missing {
+  color: var(--yellow);
+}
+.session-when {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+.session-picker-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
 /* Search dimming and collapsed subtree */
 .node-card.dim {
   opacity: 0.32;

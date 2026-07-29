@@ -36,6 +36,20 @@ export interface Turn {
   createdAt: number
 }
 
+// A resumable Claude session found on disk, summarized for the resume picker.
+export interface SessionSummary {
+  sessionId: string
+  // From the transcript itself, so it's the real path — the project directory
+  // name it lives under is lossy (every non-alphanumeric becomes a dash).
+  cwd: string | null
+  cwdExists: boolean
+  // The first thing the user typed, used as the label.
+  title: string | null
+  gitBranch: string | null
+  updatedAt: number
+  bytes: number
+}
+
 export interface SessionHistory {
   turns: Turn[]
   contextTokens: number
@@ -184,6 +198,7 @@ export interface ForkfieldApi {
   interrupt(nodeId: string): void
   respondPermission(requestId: string, allow: boolean): void
   loadHistory(sessionId: string): Promise<SessionHistory | null>
+  listSessions(): Promise<SessionSummary[]>
   saveFile(canvas: CanvasState, path?: string | null): Promise<string | null>
   openFile(): Promise<{ path: string; canvas: CanvasState } | null>
   onMenu(cb: (action: string) => void): () => void

@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from 'fs'
 import { SessionManager } from './sessions'
 import { loadCanvas, saveCanvas } from './persistence'
 import { recordRendererError, recordProcessGone } from './errorlog'
-import { loadSessionHistory } from './history'
+import { listRecentSessions, loadSessionHistory } from './history'
 import { setupUpdater } from './updater'
 import { spawn } from 'child_process'
 import { isGitRepo, createWorktree, removeWorktree, gitDiff, promoteWorktree } from './git'
@@ -163,6 +163,8 @@ ipcMain.handle('session:startTurn', async (_e, params: StartTurnParams) => {
 ipcMain.handle('session:loadHistory', async (_e, sessionId: string) =>
   loadSessionHistory(sessionId)
 )
+
+ipcMain.handle('session:list', async () => listRecentSessions())
 
 ipcMain.handle('file:save', async (_e, payload: { canvas: CanvasState; path: string | null }) => {
   let target = payload.path

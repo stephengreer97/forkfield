@@ -119,6 +119,19 @@ export function formatTokens(n: number): string {
   return String(n)
 }
 
+// Compact "when did this last happen" for list rows.
+export function relativeTime(ms: number): string {
+  const secs = Math.max(0, (Date.now() - ms) / 1000)
+  if (secs < 90) return 'just now'
+  const mins = secs / 60
+  if (mins < 60) return `${Math.round(mins)}m ago`
+  const hours = mins / 60
+  if (hours < 24) return `${Math.round(hours)}h ago`
+  const days = hours / 24
+  if (days < 30) return `${Math.round(days)}d ago`
+  return new Date(ms).toLocaleDateString()
+}
+
 export function formatCost(usd: number): string {
   if (usd <= 0) return '$0.00'
   if (usd < 0.01) return '<$0.01'
