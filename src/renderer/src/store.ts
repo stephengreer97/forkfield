@@ -532,6 +532,7 @@ export const useStore = create<Store>((set, get) => ({
             canvas: replaceNode(canvas, e.nodeId, (n) => {
               n.usage = addUsage(n.usage, e.usage)
               if (e.contextTokens) n.contextTokens = e.contextTokens
+              if (e.model) n.resolvedModel = e.model
               if (e.sessionId) n.sessionId = e.sessionId
               if (e.nodeId !== s.openNodeId) n.unread = true
               const turn = n.turns.find((t) => t.id === e.turnId)
@@ -539,6 +540,22 @@ export const useStore = create<Store>((set, get) => ({
                 turn.usage = e.usage
                 if (e.model) turn.model = e.model
               }
+              return n
+            })
+          }
+        case 'model':
+          return {
+            canvas: replaceNode(canvas, e.nodeId, (n) => {
+              n.resolvedModel = e.model
+              return n
+            })
+          }
+        case 'compacted':
+          return {
+            canvas: replaceNode(canvas, e.nodeId, (n) => {
+              // 0 means the CLI didn't report a post-compaction size; the next
+              // turn's usage fills it in.
+              n.contextTokens = e.contextTokens
               return n
             })
           }

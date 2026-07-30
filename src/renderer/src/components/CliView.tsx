@@ -22,6 +22,18 @@ function shortModel(model: string): string {
   return model
 }
 
+// The pill shows the model Claude actually ran; this explains where it came
+// from, since both "opus" and the account default resolve to something.
+function modelTooltip(node: CanvasNode): string {
+  const asked = node.model ?? null
+  if (node.resolvedModel) {
+    const from = asked ? `selected: ${asked}` : 'account default — no model chosen for this node'
+    return `Running ${node.resolvedModel} (${from}).\nChange with /model`
+  }
+  if (asked) return `Set to ${asked}; the exact version appears once a turn runs.\nChange with /model`
+  return 'Account default model; the exact version appears once a turn runs.\nChange with /model'
+}
+
 export default function CliView(props: {
   node: CanvasNode
   anim?: 'collapse' | 'enter' | null
@@ -320,8 +332,8 @@ export default function CliView(props: {
             <span className="cli-cwd">{node.workingDirectory}</span>
           </div>
           <div className="cli-header-right">
-            <span className="usage-pill" title="Model for this node (change with /model)">
-              {node.model ?? 'default'}
+            <span className="usage-pill" title={modelTooltip(node)}>
+              {node.resolvedModel ?? node.model ?? 'default'}
             </span>
             <span className="usage-pill" title={usageBreakdown(node.usage)}>
               {formatTokens(tokens)} tok · {formatCost(node.usage.costUsd)}

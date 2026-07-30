@@ -1007,14 +1007,21 @@ export default function App(): JSX.Element {
         <ChoiceDialog
           title="Choose model for this node"
           onCancel={() => setModelPicker(null)}
-          options={MODEL_OPTIONS.map((m) => ({
-            label: m.label,
-            desc: m.desc,
-            onClick: () => {
-              useStore.getState().setNodeModel(modelPicker.nodeId, m.value)
-              setModelPicker(null)
+          options={MODEL_OPTIONS.map((m) => {
+            const node = canvas.nodes.find((n) => n.id === modelPicker.nodeId)
+            const current = (node?.model ?? null) === m.value
+            // Only this node's own resolved id is knowable — the CLI reports
+            // what it ran, never a catalogue of what every alias maps to.
+            const resolved = current && node?.resolvedModel ? node.resolvedModel : null
+            return {
+              label: current ? `${m.label} · current` : m.label,
+              desc: resolved ? `${m.desc} — running ${resolved}` : m.desc,
+              onClick: () => {
+                useStore.getState().setNodeModel(modelPicker.nodeId, m.value)
+                setModelPicker(null)
+              }
             }
-          }))}
+          })}
         />
       )}
       {confirmClear && (

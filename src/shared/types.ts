@@ -72,7 +72,10 @@ export interface CanvasNode {
   contextTokens?: number
   title: string
   unread: boolean
+  // What the user asked for — an alias like "opus", or null for the account
+  // default. `resolvedModel` is what Claude actually ran, e.g. "claude-opus-5".
   model?: string | null
+  resolvedModel?: string | null
   slashCommands?: string[]
   permissionMode?: PermissionMode | null
   worktree?: Worktree | null
@@ -160,6 +163,11 @@ export type SessionEvent =
       sessionId: string | null
       model?: string | null
     }
+  // The model Claude resolved for this session, reported at startup.
+  | { type: 'model'; nodeId: string; model: string }
+  // A /compact (or an automatic one) shrank the conversation. `contextTokens`
+  // is the post-compaction size, or 0 when the CLI doesn't report it.
+  | { type: 'compacted'; nodeId: string; contextTokens: number; trigger: 'manual' | 'auto' }
   | { type: 'permission_request'; nodeId: string; requestId: string; toolName: string; input: unknown }
   | { type: 'slash_commands'; nodeId: string; commands: string[] }
   | { type: 'error'; nodeId: string; message: string }

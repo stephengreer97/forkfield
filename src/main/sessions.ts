@@ -242,6 +242,26 @@ export class SessionManager {
               commands: message.slash_commands as string[]
             })
           }
+          // The resolved model, which is the only way to learn what an alias
+          // like "opus" — or the account default — actually maps to.
+          if (typeof message.model === 'string' && message.model) {
+            rt.lastModel = message.model
+            this.send({ type: 'model', nodeId: rt.nodeId, model: message.model })
+          }
+        } else if (message.subtype === 'compact_boundary') {
+          // Compaction replaces the conversation with a summary, so the context
+          // just shrank. Without this the meter keeps showing the pre-compaction
+          // size: it is fed by the last assistant message, and the newest one
+          // was sent the full conversation.
+          const meta = message.compact_metadata ?? {}
+          const post = typeof meta.post_tokens === 'number' ? meta.post_tokens : 0
+          rt.lastContextTokens = post
+          this.send({
+            type: 'compacted',
+            nodeId: rt.nodeId,
+            contextTokens: post,
+            trigger: meta.trigger === 'auto' ? 'auto' : 'manual'
+          })
         }
         break
       }
