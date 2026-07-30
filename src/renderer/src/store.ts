@@ -3,6 +3,7 @@ import type {
   CanvasNode,
   CanvasSettings,
   CanvasState,
+  NodeStatus,
   PermissionMode,
   SessionEvent,
   Turn,
@@ -36,7 +37,8 @@ interface Store {
   pushToast(t: Omit<Toast, 'id'>): void
   dismissToast(id: string): void
 
-  setCanvas(c: CanvasState | null): void
+  // Returns how many nodes were recovered from an unclean shutdown.
+  setCanvas(c: CanvasState | null): number
   createEmptyCanvas(): void
   initCanvas(dir: string): string
   addRoot(dir: string, resumeSessionId?: string | null): CanvasNode | null
@@ -91,6 +93,38 @@ function ensureAssistantTurn(node: CanvasNode, turnId: string): Turn {
   return turn
 }
 
+// A canvas is only ever read back from disk, so by definition nothing in it is
+// still running: a node saved mid-turn means the app died while Claude was
+// working — an out-of-memory kill, say. Restoring the spinner strands the node,
+// because there is no runtime left for ctrl+c to interrupt. Mark it failed and
+// say so in the transcript, where the missing answer would have gone.
+function recoverInterrupted(c: CanvasState): { canvas: CanvasState; recovered: number } {
+  let recovered = 0
+  const nodes = c.nodes.map((n) => {
+    if (n.status !== 'thinking' && n.status !== 'awaiting_permission') return n
+    recovered++
+    return {
+      ...n,
+      status: 'error' as NodeStatus,
+      turns: [
+        ...n.turns,
+        {
+          id: uuid(),
+          role: 'assistant' as const,
+          blocks: [
+            {
+              kind: 'text' as const,
+              text: '⚠️ Forkfield closed while this node was working, so the run never finished. The Claude session itself is intact — send another message to carry on from here.'
+            }
+          ],
+          createdAt: Date.now()
+        }
+      ]
+    }
+  })
+  return { canvas: recovered ? { ...c, nodes } : c, recovered }
+}
+
 function addUsage(a: Usage, b: Usage): Usage {
   return {
     input: a.input + b.input,
@@ -116,18 +150,21 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   setCanvas(c) {
-    if (c) {
-      const legacy = c.settings as unknown as { bypassPermissions?: boolean }
-      c = {
-        ...c,
-        settings: {
-          ...defaultSettings(),
-          ...c.settings,
-          ...(legacy?.bypassPermissions ? { permissionMode: 'skip' as PermissionMode } : {})
-        }
-      }
+    if (!c) {
+      set({ canvas: c })
+      return 0
     }
-    set({ canvas: c })
+    const legacy = c.settings as unknown as { bypassPermissions?: boolean }
+    const { canvas, recovered } = recoverInterrupted({
+      ...c,
+      settings: {
+        ...defaultSettings(),
+        ...c.settings,
+        ...(legacy?.bypassPermissions ? { permissionMode: 'skip' as PermissionMode } : {})
+      }
+    })
+    set({ canvas })
+    return recovered
   },
 
   createEmptyCanvas() {

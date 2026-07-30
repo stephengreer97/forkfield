@@ -172,7 +172,16 @@ export default function App(): JSX.Element {
     window.forkfield.loadCanvas().then((c) => {
       if (!mounted) return
       if (c) {
-        useStore.getState().setCanvas(c)
+        const recovered = useStore.getState().setCanvas(c)
+        if (recovered > 0) {
+          useStore.getState().pushToast({
+            kind: 'warn',
+            message: `${recovered} node${recovered === 1 ? '' : 's'} ${
+              recovered === 1 ? 'was' : 'were'
+            } still running when Forkfield last closed — marked as failed.`,
+            duration: 9000
+          })
+        }
       } else {
         useStore.getState().createEmptyCanvas()
       }

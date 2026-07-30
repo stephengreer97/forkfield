@@ -71,7 +71,14 @@ export class SessionManager {
 
   interrupt(nodeId: string): void {
     const rt = this.runtimes.get(nodeId)
-    if (rt?.abort) rt.abort.abort()
+    if (rt?.abort) {
+      rt.abort.abort()
+      return
+    }
+    // There is nothing to abort, yet the node is showing a spinner — its
+    // runtime died with the process that owned it. Ctrl+C used to no-op here,
+    // leaving the node stuck forever; clear it instead.
+    this.send({ type: 'status', nodeId, status: 'idle' })
   }
 
   private runtime(nodeId: string, cwd: string): NodeRuntime {
