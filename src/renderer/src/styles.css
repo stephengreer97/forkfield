@@ -1594,8 +1594,147 @@ body,
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
   line-height: 1.5;
-  white-space: pre;
   color: var(--text);
+}
+.diff-plain {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
+  color: var(--muted);
+}
+
+/* Unified +/- diffs: the patch dialog and inline file edits */
+.dl-body {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-x: auto;
+}
+.dl {
+  display: flex;
+  align-items: flex-start;
+  white-space: pre;
+  min-width: max-content;
+}
+.dl-num {
+  flex: 0 0 auto;
+  width: 44px;
+  padding-right: 8px;
+  text-align: right;
+  color: var(--muted);
+  opacity: 0.6;
+  user-select: none;
+}
+.dl-mark {
+  flex: 0 0 auto;
+  width: 14px;
+  text-align: center;
+  color: var(--muted);
+  user-select: none;
+}
+.dl-text {
+  flex: 1 1 auto;
+  padding-right: 10px;
+}
+.dl-add {
+  background: var(--green-weak);
+}
+.dl-add .dl-mark,
+.dl-add .dl-text {
+  color: var(--green);
+}
+.dl-del {
+  background: var(--red-weak);
+}
+.dl-del .dl-mark,
+.dl-del .dl-text {
+  color: var(--red);
+}
+.dl-gap {
+  background: var(--panel-2);
+  color: var(--muted);
+  font-style: italic;
+  opacity: 0.8;
+}
+.dl-gap .dl-text {
+  font-size: 11px;
+}
+
+.diff-stat {
+  display: inline-flex;
+  gap: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+.diff-stat .stat-add {
+  color: var(--green);
+}
+.diff-stat .stat-del {
+  color: var(--red);
+}
+.diff-stat .stat-none {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.patch {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.patch-file {
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  overflow: hidden;
+  background: var(--panel);
+}
+.patch-file-head,
+.edit-diff-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+}
+.patch-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text);
+}
+.patch-badge {
+  flex: 0 0 auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--accent);
+  background: var(--accent-weak);
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
+}
+.patch-file .dl-body {
+  max-height: none;
+}
+
+.edit-diff {
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-1);
+  overflow: hidden;
+  background: var(--panel);
+}
+.edit-diff .dl-body {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.block-tool.compact .tool-target {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted);
 }
 
 /* Markdown rendering of Claude output */

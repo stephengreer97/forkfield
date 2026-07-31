@@ -4,6 +4,7 @@ import type { CanvasNode, ContentBlock, Turn } from '../../../shared/types'
 import type { PendingPermission } from '../store'
 import { contextLimitFor, formatCost, formatTokens, usageBreakdown } from '../util'
 import { Markdown } from './Markdown'
+import { DiffStat, EditView, shortPath, toolEdit } from './Diff'
 import Icon from './Icon'
 
 interface BranchPopover {
@@ -699,10 +700,19 @@ function BlockView(props: {
     )
   }
   if (b.kind === 'tool_use') {
+    // File edits read far better as a +/- diff than as raw JSON.
+    const edit = toolEdit(b.toolName, b.toolInput)
     if (!props.showToolDetail) {
       return (
         <div className="block-tool compact">
           <Icon name="chevronRight" size={12} /> <b>{b.toolName}</b>
+          {edit && (
+            <>
+              {' '}
+              <span className="tool-target">{shortPath(edit.path)}</span>{' '}
+              <DiffStat added={edit.added} removed={edit.removed} />
+            </>
+          )}
         </div>
       )
     }
@@ -711,7 +721,7 @@ function BlockView(props: {
         <span className="block-tool-head">
           <Icon name="chevronRight" size={12} /> <b>{b.toolName}</b>
         </span>
-        <pre className="tool-input">{safeJson(b.toolInput)}</pre>
+        {edit ? <EditView edit={edit} /> : <pre className="tool-input">{safeJson(b.toolInput)}</pre>}
       </div>
     )
   }

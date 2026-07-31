@@ -8,6 +8,7 @@ import Icon from './components/Icon'
 import UpdateBanner from './components/UpdateBanner'
 import CommandPalette, { type PaletteItem } from './components/CommandPalette'
 import SessionPicker from './components/SessionPicker'
+import { PatchView } from './components/Diff'
 import {
   autoTitle,
   buildBranchPrompt,
@@ -1172,7 +1173,13 @@ function DiffDialog(props: {
             <Icon name="close" size={14} />
           </button>
         </div>
-        <pre className="diff-body">{props.view.text}</pre>
+        <div className="diff-body">
+          {props.view.text.includes('diff --git ') ? (
+            <PatchView patch={props.view.text} />
+          ) : (
+            <pre className="diff-plain">{props.view.text}</pre>
+          )}
+        </div>
       </div>
     </div>
   )
