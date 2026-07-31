@@ -18,6 +18,9 @@ import NodeCard, { type BranchNodeData } from './NodeCard'
 
 const nodeTypes = { branch: NodeCard }
 
+// The zoom the canvas opens at, and the ceiling for any automatic fit.
+const INITIAL_ZOOM = 0.85
+
 function statusColor(status: CanvasNode['status'] | undefined, dark: boolean): string {
   switch (status) {
     case 'thinking':
@@ -64,7 +67,7 @@ export default function Canvas(props: {
     if (!c) return
     const root = c.nodes.find((n) => !n.parentId) ?? c.nodes[0]
     if (!root) return
-    const zoom = 0.85
+    const zoom = INITIAL_ZOOM
     const container = document.querySelector('.canvas') as HTMLElement | null
     const h = container?.clientHeight ?? window.innerHeight
     const x = 80 - root.position.x * zoom
@@ -83,10 +86,11 @@ export default function Canvas(props: {
     inst.setCenter(n.position.x + 132, n.position.y + 60, { zoom: 0.95, duration: 400 })
   }, [focusId, focusNonce])
 
-  // Fit the whole graph after a tidy layout.
+  // Fit the whole graph after a tidy layout. Capped at the same zoom the canvas
+  // opens at: without a cap, fitView blows a two-node graph up to maxZoom.
   useEffect(() => {
     if (props.fitNonce === undefined) return
-    instanceRef.current?.fitView({ duration: 400, padding: 0.15 })
+    instanceRef.current?.fitView({ duration: 400, padding: 0.15, maxZoom: INITIAL_ZOOM })
   }, [props.fitNonce])
 
   if (!canvas) return null

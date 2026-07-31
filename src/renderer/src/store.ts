@@ -52,7 +52,12 @@ interface Store {
     selection: string
   ): CanvasNode | null
   appendUserTurn(nodeId: string, text: string): void
-  setNodeTurns(nodeId: string, turns: Turn[], contextTokens?: number): void
+  setNodeTurns(
+    nodeId: string,
+    turns: Turn[],
+    contextTokens?: number,
+    contextLimit?: number
+  ): void
   setNodeModel(nodeId: string, model: string | null): void
   setNodeWorktree(nodeId: string, wt: Worktree): void
   setNodeTitle(nodeId: string, title: string, auto?: boolean): void
@@ -308,13 +313,14 @@ export const useStore = create<Store>((set, get) => ({
     })
   },
 
-  setNodeTurns(nodeId, turns, contextTokens) {
+  setNodeTurns(nodeId, turns, contextTokens, contextLimit) {
     set((s) =>
       s.canvas
         ? {
             canvas: replaceNode(s.canvas, nodeId, (n) => {
               n.turns = turns
               if (contextTokens !== undefined) n.contextTokens = contextTokens
+              if (contextLimit !== undefined) n.contextLimit = contextLimit
               return n
             })
           }
@@ -590,9 +596,12 @@ export const useStore = create<Store>((set, get) => ({
         case 'compacted':
           return {
             canvas: replaceNode(canvas, e.nodeId, (n) => {
-              // 0 means the CLI didn't report a post-compaction size; the next
-              // turn's usage fills it in.
-              n.contextTokens = e.contextTokens
+              // 0 means the CLI didn't report a post-compaction size; leave the
+              // old figure until the next turn's usage fills it in.
+              if (e.contextTokens) n.contextTokens = e.contextTokens
+              // An automatic compaction is the ground truth for where this
+              // session's context runs out — remember it for the meter.
+              if (e.trigger === 'auto' && e.preTokens) n.contextLimit = e.preTokens
               return n
             })
           }

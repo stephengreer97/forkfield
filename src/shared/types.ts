@@ -53,6 +53,8 @@ export interface SessionSummary {
 export interface SessionHistory {
   turns: Turn[]
   contextTokens: number
+  // Where this session last auto-compacted, if it ever did.
+  contextLimit?: number
 }
 
 export interface CanvasNode {
@@ -70,6 +72,9 @@ export interface CanvasNode {
   // message's input + cache + output), as opposed to `usage`, which is the
   // cumulative total billed across every turn.
   contextTokens?: number
+  // The context size at which Claude auto-compacted this session, learned from
+  // its first automatic compaction. Undefined until one happens.
+  contextLimit?: number
   title: string
   unread: boolean
   // What the user asked for — an alias like "opus", or null for the account
@@ -167,7 +172,15 @@ export type SessionEvent =
   | { type: 'model'; nodeId: string; model: string }
   // A /compact (or an automatic one) shrank the conversation. `contextTokens`
   // is the post-compaction size, or 0 when the CLI doesn't report it.
-  | { type: 'compacted'; nodeId: string; contextTokens: number; trigger: 'manual' | 'auto' }
+  // `preTokens` is the size it compacted from: on an automatic trigger that is
+  // exactly where Claude decided the context was full.
+  | {
+      type: 'compacted'
+      nodeId: string
+      contextTokens: number
+      preTokens: number
+      trigger: 'manual' | 'auto'
+    }
   | { type: 'permission_request'; nodeId: string; requestId: string; toolName: string; input: unknown }
   | { type: 'slash_commands'; nodeId: string; commands: string[] }
   | { type: 'error'; nodeId: string; message: string }

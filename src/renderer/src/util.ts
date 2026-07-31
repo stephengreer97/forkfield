@@ -110,8 +110,19 @@ export function buildBranchPrompt(selection: string, question: string): string {
   return `Regarding this part of your previous response:\n\n${quoted}\n\n${question}`
 }
 
-// Usable context window per session, in tokens.
-export const CONTEXT_LIMIT = 200_000
+// The meter fills toward the point where Claude auto-compacts, not toward the
+// raw model window — and that point isn't a constant: a session on a 1M-context
+// model runs well past 200k before compacting. A node learns its real number
+// from its first automatic compaction (`contextLimit`). Until then, guess the
+// smallest window the conversation still fits in, so the meter can never read
+// past full.
+const KNOWN_WINDOWS = [200_000, 1_000_000]
+
+export function contextLimitFor(node: { contextTokens?: number; contextLimit?: number }): number {
+  if (node.contextLimit) return node.contextLimit
+  const ctx = node.contextTokens ?? 0
+  return KNOWN_WINDOWS.find((w) => ctx <= w) ?? Math.ceil(ctx / 1_000_000) * 1_000_000
+}
 
 export function formatTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'

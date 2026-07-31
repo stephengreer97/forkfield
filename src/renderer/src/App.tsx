@@ -12,7 +12,7 @@ import {
   autoTitle,
   buildBranchPrompt,
   cleanResumeId,
-  CONTEXT_LIMIT,
+  contextLimitFor,
   descendantIds,
   formatCost,
   formatTokens,
@@ -271,13 +271,14 @@ export default function App(): JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Auto-compact layout when context gets too long (>80% of 200k tokens)
+  // Tidy the layout when some node's context gets close to its auto-compact
+  // point (>80% of it).
   const autoCompactRef = useRef(false)
   useEffect(() => {
     if (!canvas) return
     let anyNodeHighContext = false
     for (const node of canvas.nodes) {
-      if ((node.contextTokens ?? 0) > CONTEXT_LIMIT * 0.8) {
+      if ((node.contextTokens ?? 0) > contextLimitFor(node) * 0.8) {
         anyNodeHighContext = true
         break
       }
@@ -713,7 +714,9 @@ export default function App(): JSX.Element {
     if (node && resumeSessionId) {
       const history = await window.forkfield.loadHistory(resumeSessionId)
       if (history && history.turns.length) {
-        useStore.getState().setNodeTurns(node.id, history.turns, history.contextTokens)
+        useStore
+          .getState()
+          .setNodeTurns(node.id, history.turns, history.contextTokens, history.contextLimit)
       }
     }
   }, [])

@@ -260,13 +260,22 @@ export class SessionManager {
           // just shrank. Without this the meter keeps showing the pre-compaction
           // size: it is fed by the last assistant message, and the newest one
           // was sent the full conversation.
-          const meta = message.compact_metadata ?? {}
-          const post = typeof meta.post_tokens === 'number' ? meta.post_tokens : 0
-          rt.lastContextTokens = post
+          // The SDK and the transcript spell these differently, so read both.
+          const meta = message.compact_metadata ?? message.compactMetadata ?? {}
+          const num = (snake: string, camel: string): number => {
+            const v = meta[snake] ?? meta[camel]
+            return typeof v === 'number' ? v : 0
+          }
+          const post = num('post_tokens', 'postTokens')
+          const pre = num('pre_tokens', 'preTokens')
+          // A missing post size means "unknown", not "empty" — leave the meter
+          // where it was and let the next turn correct it.
+          if (post) rt.lastContextTokens = post
           this.send({
             type: 'compacted',
             nodeId: rt.nodeId,
             contextTokens: post,
+            preTokens: pre,
             trigger: meta.trigger === 'auto' ? 'auto' : 'manual'
           })
         }

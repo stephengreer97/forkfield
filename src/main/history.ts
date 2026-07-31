@@ -226,6 +226,7 @@ export function loadSessionHistory(sessionId: string): SessionHistory | null {
   const turns: Turn[] = []
   let lastAssistant: Turn | null = null
   let contextTokens = 0
+  let contextLimit = 0
 
   for (const line of raw.split('\n')) {
     const trimmed = line.trim()
@@ -240,6 +241,15 @@ export function loadSessionHistory(sessionId: string): SessionHistory | null {
     if (obj?.isSidechain) continue
 
     const type = obj?.type
+    // An automatic compaction records the size Claude compacted from, which is
+    // where this session's context actually runs out.
+    if (type === 'system' && obj?.subtype === 'compact_boundary') {
+      const meta = obj.compactMetadata ?? obj.compact_metadata ?? {}
+      const pre = meta.preTokens ?? meta.pre_tokens
+      if (meta.trigger === 'auto' && typeof pre === 'number' && pre > 0) contextLimit = pre
+      continue
+    }
+
     const message = obj?.message
     if (!message) continue
 
@@ -271,5 +281,5 @@ export function loadSessionHistory(sessionId: string): SessionHistory | null {
     }
   }
 
-  return { turns, contextTokens }
+  return { turns, contextTokens, contextLimit: contextLimit || undefined }
 }

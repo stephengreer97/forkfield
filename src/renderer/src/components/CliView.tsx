@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { JSX, MouseEvent as ReactMouseEvent } from 'react'
 import type { CanvasNode, ContentBlock, Turn } from '../../../shared/types'
 import type { PendingPermission } from '../store'
-import { CONTEXT_LIMIT, formatCost, formatTokens, usageBreakdown } from '../util'
+import { contextLimitFor, formatCost, formatTokens, usageBreakdown } from '../util'
 import { Markdown } from './Markdown'
 import Icon from './Icon'
 
@@ -292,7 +292,8 @@ export default function CliView(props: {
 
   const tokens = node.usage.input + node.usage.output + node.usage.cacheRead + node.usage.cacheWrite
   const contextTokens = node.contextTokens ?? 0
-  const contextPct = Math.min((contextTokens / CONTEXT_LIMIT) * 100, 100)
+  const contextLimit = contextLimitFor(node)
+  const contextPct = Math.min((contextTokens / contextLimit) * 100, 100)
 
   return (
     <div
@@ -395,7 +396,9 @@ export default function CliView(props: {
           className={`cli-context${contextPct >= 80 ? ' high' : ''}`}
           title={
             contextTokens
-              ? `Context window: ${contextTokens.toLocaleString()} of ${CONTEXT_LIMIT.toLocaleString()} tokens used (${Math.round(contextPct)}%)`
+              ? `Context window: ${contextTokens.toLocaleString()} of ${contextLimit.toLocaleString()} tokens used (${Math.round(contextPct)}%)${
+                  node.contextLimit ? ' — this session auto-compacts at full' : ''
+                }`
               : 'Context window: nothing used yet — this fills as the conversation grows'
           }
         >
@@ -405,13 +408,13 @@ export default function CliView(props: {
             role="progressbar"
             aria-label="Context window used"
             aria-valuemin={0}
-            aria-valuemax={CONTEXT_LIMIT}
+            aria-valuemax={contextLimit}
             aria-valuenow={contextTokens}
           >
             <div className="cli-context-fill" style={{ width: `${contextPct}%` }} />
           </div>
           <span className="cli-context-value">
-            {formatTokens(contextTokens)} / {formatTokens(CONTEXT_LIMIT)}
+            {formatTokens(contextTokens)} / {formatTokens(contextLimit)}
           </span>
         </div>
 
